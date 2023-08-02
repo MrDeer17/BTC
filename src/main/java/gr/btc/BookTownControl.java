@@ -27,6 +27,7 @@ public final class BookTownControl extends JavaPlugin {
         Objects.requireNonNull(getCommand("amendlaws")).setExecutor(new cmds());
         Objects.requireNonNull(getCommand("laws")).setExecutor(new cmds());
         Objects.requireNonNull(getCommand("tinvite")).setExecutor(new cmds());
+        Objects.requireNonNull(getCommand("menu")).setExecutor(new cmds());
     }
 
     @Override

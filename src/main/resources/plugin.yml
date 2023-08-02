@@ -12,3 +12,5 @@ commands:
     description: Посмотреть какие законы в стране которой вы сейчас находитесь
   tinvite:
     description: Лёгкое приглашение в страну
+  menu:
+    description: Menu

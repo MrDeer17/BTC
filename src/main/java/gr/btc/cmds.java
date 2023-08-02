@@ -211,6 +211,9 @@ public class cmds implements CommandExecutor {
                 }
             });
         }
+        else if (command.getName().equalsIgnoreCase("menu")) {
+            InventoryManager.openInventoryMAIN((Player) sender);
+        }
         return false;
     }
 
