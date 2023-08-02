@@ -1,0 +1,14 @@
+name: BookTownControl
+version: '${project.version}'
+main: gr.btc.BookTownControl
+api-version: '1.20'
+
+commands:
+  countryremove:
+    description: Country removing
+  amendlaws:
+    description: Change laws of this country
+  laws:
+    description: Посмотреть какие законы в стране которой вы сейчас находитесь
+  tinvite:
+    description: Лёгкое приглашение в страну
