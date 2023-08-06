@@ -1,3 +1,15 @@
-gr\btc\cmds.class
+gr\btc\InventoryManager.class
+gr\btc\Army$ArmyPlayer.class
+gr\btc\Army.class
+gr\btc\ChunkCoord.class
+gr\btc\InventoryManager$MyHolder.class
+gr\btc\BookTownControl.class
+gr\btc\TownAddition.class
+gr\btc\CommandListener.class
 gr\btc\main.class
+gr\btc\CommandListener$CommandExecutedCallback.class
+gr\btc\OtherEvents.class
+gr\btc\OnBookWrite.class
+gr\btc\cmds.class
 gr\btc\ChatListener.class
+gr\btc\InventoryManager$1.class

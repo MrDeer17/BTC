@@ -145,7 +145,7 @@ public class OtherEvents implements Listener {
                 player.sendMessage(ChatColor.RED+"Некорректное перекрытие чанков, отмена привата\nБазовые чанки не должны ограничивать обычные чанки со всех сторон");
                 return;
             } else {
-                BookTownControl.ChunckPriorityMap.put(wc, 1);
+                BookTownControl.townAddition.get(wc.getTownOrNull().getUUID()).addChunckPriorityMap(new ChunkCoord(wc.getX(),wc.getZ(),wc.getWorldName()) ,1);
             }
 
             for (int i = 0; i < 20; i++) {
@@ -175,7 +175,6 @@ public class OtherEvents implements Listener {
             }
         }
     }
-
     @EventHandler
     public void onPlayerSwapHandItems(PlayerSwapHandItemsEvent event) {
         Player player = event.getPlayer();
@@ -209,7 +208,8 @@ public class OtherEvents implements Listener {
     }
     String GetIsPriority(WorldCoord getto) {
         String outMessage = "";
-        if(!BookTownControl.ChunckPriorityMap.containsKey(getto)) {
+        Town town = getto.getTownOrNull();
+        if(!(BookTownControl.townAddition.containsKey(town.getUUID())) || !BookTownControl.townAddition.get(town.getUUID()).getChunckPriorityMap().containsKey(new ChunkCoord(getto.getX(),getto.getZ(),getto.getWorldName()))) {
             outMessage += " "+ChatColor.DARK_GRAY+"⚔"; //If FightChunck
         }
         else {
@@ -231,7 +231,7 @@ public class OtherEvents implements Listener {
             for (int j = 0; j <= 4; j++) {
                 if (coordsCheck.isWilderness()) {
                     chunkPriorityArray[i][j] = -1; // Если чанк wilderness, приоритет -1
-                } else if (BookTownControl.ChunckPriorityMap.containsKey(coordsCheck)) {
+                } else if (BookTownControl.townAddition.get(event.getTown().getUUID()).getChunckPriorityMap().containsKey((new ChunkCoord(coordsCheck.getX(),coordsCheck.getZ(),coordsCheck.getWorldName())))) {
                     chunkPriorityArray[i][j] = 1; // Если чанк есть в ChunckPriorityMap, приоритет 1
                 } else {
                     chunkPriorityArray[i][j] = 0; // Если чанка нет в ChunckPriorityMap, приоритет 0
@@ -318,7 +318,7 @@ public class OtherEvents implements Listener {
             for (int j = 0; j <= 4; j++) {
                 if (coordsCheck.isWilderness()) {
                     chunkPriorityArray[i][j] = -1; // If the chunk is wilderness, set priority to -1
-                } else if (BookTownControl.ChunckPriorityMap.containsKey(coordsCheck)) {
+                } else if (BookTownControl.townAddition.get(event.getTown().getUUID()).getChunckPriorityMap().containsKey((new ChunkCoord(coordsCheck.getX(),coordsCheck.getZ(),coordsCheck.getWorldName())))) {
                     chunkPriorityArray[i][j] = 1; // If the chunk is in ChunckPriorityMap, set priority to 1
                 } else {
                     chunkPriorityArray[i][j] = 0; // If the chunk is not in ChunckPriorityMap, set priority to 0
@@ -331,7 +331,7 @@ public class OtherEvents implements Listener {
             coordsCheck = new WorldCoord(coordsCheckRam.getWorldName(), coordsCheckRam.getX() - 5, coordsCheckRam.getZ() + 1);
         }
 
-        printChunkPriorityArray(chunkPriorityArray);
+        //printChunkPriorityArray(chunkPriorityArray);
 
         // Check if the center element and its adjacent elements in all four directions are equal to 1
         boolean allOnes = true;
@@ -354,13 +354,5 @@ public class OtherEvents implements Listener {
 
 
         return allOnes;
-    }
-    private void printChunkPriorityArray(int[][] chunkPriorityArray) {
-        for (int i = 0; i < chunkPriorityArray.length; i++) {
-            for (int j = 0; j < chunkPriorityArray[i].length; j++) {
-                System.out.print((chunkPriorityArray[i][j]+1) + " ");
-            }
-            System.out.println();
-        }
     }
 }

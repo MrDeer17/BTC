@@ -4,7 +4,7 @@ main: gr.btc.BookTownControl
 api-version: '1.20'
 
 commands:
-  countryremove:
+  country:
     description: Country removing
   amendlaws:
     description: Change laws of this country
@@ -13,4 +13,8 @@ commands:
   tinvite:
     description: Лёгкое приглашение в страну
   menu:
+    description: Menu
+  army:
+    description: Menu
+  openbookinmainhand:
     description: Menu

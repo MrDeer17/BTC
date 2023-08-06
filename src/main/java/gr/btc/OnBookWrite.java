@@ -28,9 +28,8 @@ import org.bukkit.inventory.ItemStack;
 import org.bukkit.inventory.meta.BookMeta;
 import org.bukkit.inventory.meta.ItemMeta;
 
-import java.util.ArrayList;
-import java.util.List;
-import java.util.Objects;
+import java.text.DecimalFormat;
+import java.util.*;
 
 public class OnBookWrite implements Listener {
     @EventHandler
@@ -38,18 +37,23 @@ public class OnBookWrite implements Listener {
         if (!(event.getNewBookMeta().getDisplayName().equalsIgnoreCase(main.genGr("Книга создания страны","#FF0E6C","#C90AFF"))) || !event.isSigning()) {
             return;
         }
-        event.setCancelled(true);
+
         Player player = event.getPlayer();
         List<String> pages = event.getNewBookMeta().getPages();
         Resident resik = new Resident(player.getName());
-        for(Town t : TownyUniverse.getInstance().getTowns()) {
-            if(Objects.equals(t.getMayor().getPlayer(), resik.getPlayer())) {
-                GiveItemToFounder(t.getMayor().getPlayer(),t,true);
-                return;
+        ItemStack book = event.getPlayer().getInventory().getItemInMainHand();
+
+            for (Town t : TownyUniverse.getInstance().getTowns()) {
+                if (Objects.equals(t.getMayor().getPlayer(), resik.getPlayer())) {
+                    if (book.getItemMeta().hasDisplayName() && book.getItemMeta().getDisplayName().equalsIgnoreCase(main.genGr("Книга создания страны","#FF0E6C","#C90AFF"))) {
+                    event.getPlayer().getInventory().setItemInMainHand(null);
+                    event.getPlayer().updateInventory();
+                    GiveItemToFounder(t.getMayor().getPlayer(), t, true);
+                    return; // Выходим из цикла после удаления книги
+                    }
+                }
             }
-            else {
-            }
-        }
+        event.setCancelled(true);
         if (pages.size() < 4) {
             player.sendMessage(ChatColor.RED + "Книга должна содержать 4 страницы! У вас - "+pages.size());
             return;
@@ -63,13 +67,17 @@ public class OnBookWrite implements Listener {
         int x = 0;
         int y = 0;
         try {
-            x = Integer.parseInt(capitalLocation.split(",")[0]);
-            y = Integer.parseInt(capitalLocation.split(",")[1]);
+            String[] coordinates = capitalLocation.split(" ");
+            if (coordinates.length != 2) {
+                player.sendMessage(ChatColor.RED + "Координаты указаны неверно!");
+                return;
+            }
+            x = Integer.parseInt(coordinates[0]) >> 4; // Получаем номер чанка по координате X
+            y = Integer.parseInt(coordinates[1]) >> 4; // Получаем номер чанка по координате Z
         } catch (NumberFormatException e) {
-            player.sendMessage(ChatColor.RED +"Номер чанка указан неверно!");
-
+            player.sendMessage(ChatColor.RED + "Координаты указаны неверно!");
             return;
-        } //XY теперь числа
+        }
         String founder = pages.get(1); Player fonder = Bukkit.getPlayer(founder);
         String playerList = pages.get(2);
         String countryName = pages.get(3);
@@ -131,6 +139,7 @@ public class OnBookWrite implements Listener {
                 Town town = newTown(coords.getTownyWorld(),countryName,nr,coords.getCoord(),new Location(fonder.getWorld(),0,0,0),nr.getPlayer());
                 GiveItemToFounder(fonder,town,false);
                 Towny.getPlugin().onEnable();
+                invitePlayers(player, Arrays.asList(playerList.split(" ")));
             } catch (TownyException e) {
                 player.sendMessage("Ошибка "+e);
                 throw new RuntimeException(e);
@@ -152,6 +161,9 @@ public class OnBookWrite implements Listener {
             else if(e.getResult().getType() == Material.WRITABLE_BOOK && e.getResult().getItemMeta().getDisplayName().equalsIgnoreCase("законы")) {
                 ai.setRepairCost(5);
             }
+            else if(e.getResult().getType() == Material.WRITABLE_BOOK && e.getResult().getItemMeta().getDisplayName().equalsIgnoreCase("контракты")) {
+                ai.setRepairCost(5);
+            }
     }
     @EventHandler
     public void onInventoryClick(final InventoryClickEvent e) {
@@ -169,12 +181,25 @@ public class OnBookWrite implements Listener {
             lore.add(ChatColor.WHITE+"2: Ваш ник");
             lore.add(ChatColor.GRAY+"3: Ваши жители через запятую");
             lore.add(ChatColor.WHITE+"4: Название вашей страны");
-            //lore.add("");
-            //lore.add(ChatColor.GREEN+"Гайд - /guide");
-            bMeta.addPage("X,Y чанка");
-            bMeta.addPage("Ваш ник");
-            bMeta.addPage("Ники жителей через запятую без пробелов");
-            bMeta.addPage("Название вашей страны");
+            lore.add("");
+            lore.add(ChatColor.GREEN+"Гайд - /guide");
+            lore.add("");
+            lore.add(ChatColor.GRAY+"Ctrl+A - выделить всю страницу");
+            lore.add("");
+            int minX = -2000;
+            int maxX = 2000;
+            int minY = -2000;
+            int maxY = 2000;
+
+            int randomX = new Random().nextInt(maxX - minX + 1) + minX;
+            int randomY = new Random().nextInt(maxY - minY + 1) + minY;
+
+            String prompt = "X Y координаты\n\n Пример:\n " + randomX + " " + randomY + "\n Возьмётся чанк: " + randomX/8 + " " + randomY/8;
+
+            bMeta.setPage(1, prompt);
+            bMeta.setPage(2,"Ваш ник");
+            bMeta.setPage(3,"Ники жителей через 1 пробел");
+            bMeta.setPage(4,"Название вашей страны");
 
             bMeta.setLore(lore);
             bMeta.setDisplayName(main.genGr("Книга создания страны","#FF0E6C","#C90AFF"));
@@ -184,8 +209,22 @@ public class OnBookWrite implements Listener {
             item.setItemMeta(bMeta);
         }
         else if (item.getType() == Material.WRITABLE_BOOK && itemMeta.getDisplayName().equalsIgnoreCase("законы")) {
-            if(item.getItemMeta().getLore().isEmpty()) {
-                itemMeta.setDisplayName(main.genGr("Законы","#eb1a1a","#eb5a5a"));
+            if(!item.getItemMeta().hasLore() || item.getItemMeta().getLore().isEmpty()) {
+                itemMeta.setDisplayName(main.genGr("Законы","#eb1a1a","#cc0aaa"));
+                p.playSound(p.getLocation().add(0,50,0), Sound.UI_CARTOGRAPHY_TABLE_TAKE_RESULT, 50f, 0.9f);
+                p.playSound(p.getLocation().add(0,50,0), Sound.BLOCK_BELL_USE, 50f, 0.9f);
+                p.playSound(p.getLocation().add(0,50,0), Sound.ITEM_TRIDENT_THUNDER, 50f, 1.4f);
+                item.setItemMeta(itemMeta);
+            }
+            else {
+                e.setCancelled(true);
+                p.sendMessage(ChatColor.RED+"Эта книга не подходит для создания книги законов");
+                p.playSound(p.getLocation().add(0,50,0), Sound.ENTITY_ALLAY_ITEM_THROWN, 50f, 0.6f);
+            }
+        }
+        else if (item.getType() == Material.WRITABLE_BOOK && itemMeta.getDisplayName().equalsIgnoreCase("контракты")) {
+            if(!item.getItemMeta().hasLore() || item.getItemMeta().getLore().isEmpty()) {
+                itemMeta.setDisplayName(main.genGr("Контракты","#cc4444","#ff0000"));
                 p.playSound(p.getLocation().add(0,50,0), Sound.UI_CARTOGRAPHY_TABLE_TAKE_RESULT, 50f, 0.9f);
                 p.playSound(p.getLocation().add(0,50,0), Sound.BLOCK_BELL_USE, 50f, 0.9f);
                 p.playSound(p.getLocation().add(0,50,0), Sound.ITEM_TRIDENT_THUNDER, 50f, 1.4f);
@@ -242,7 +281,7 @@ public class OnBookWrite implements Listener {
             for(Town tl : TownyUniverse.getInstance().getTowns()) {
                 if(tl.getName().equalsIgnoreCase(bm.getPage(1).replace("Страна: ","").substring(0,indexOfNewLine).replaceAll("§[0-9a-fA-Fklmnor]", ""))) {
                     town = tl;
-                    continue;
+                    break;
                 }
             }
             if(town.equals(new Town(""))) {
@@ -315,6 +354,20 @@ public class OnBookWrite implements Listener {
                 }
                 TextComponent populationInfo = new TextComponent("Население: " + town.getResidents().size() + "\n");
                 page1.addExtra(populationInfo);
+                int Warriors = 0;
+                for(Army army : BookTownControl.Armys) {
+                    if(army.IsCountryConnected(town)) {
+                        for(Army.ArmyPlayer ap : army.getPlayers()) {
+                            if(Objects.equals(army.GetLink(ap), town.getUUID())) {
+                                Warriors++;
+                            }
+                        }
+
+                    }
+                }
+                DecimalFormat decimalFormat = new DecimalFormat("#");
+                populationInfo = new TextComponent("Численность армии: " + Warriors + " \\ " + decimalFormat.format(Math.ceil(town.getResidents().size() / 3.0)) + "\n");
+                page1.addExtra(populationInfo);
                 TextComponent leaderInfo = new TextComponent("Лидер: " + town.getMayor().getPlayer().getDisplayName());
                 page1.addExtra(leaderInfo);
                 pages.add(new BaseComponent[]{page1});
@@ -350,23 +403,33 @@ public class OnBookWrite implements Listener {
                 page2.addExtra(plusSign);
                 pages.add(new BaseComponent[]{page2});
                 TextComponent line1 = new TextComponent(ChatColor.RED + "Уничтожить страну\n");
-                line1.setClickEvent(new ClickEvent(ClickEvent.Action.RUN_COMMAND, "/countryremove " + town.getName()));
+                line1.setClickEvent(new ClickEvent(ClickEvent.Action.RUN_COMMAND, "/country remove " + town.getName()+" false"));
 
                 TextComponent line2 = new TextComponent();
-                if (!(BookTownControl.townItemMap.containsKey(town.getUUID()))) {
+                if (BookTownControl.townAddition.get(town.getUUID()).getTownItemMap() == null || BookTownControl.townAddition.get(town.getUUID()).getTownItemMap().isEmpty()) {
                     line2.setText(ChatColor.RED + "Внести книгу \nзаконов из руки\n");
                 } else {
                     line2.setText(ChatColor.GOLD + "Внести поправки\nв законы\n");
                 }
+                //main.genGr("Контракты","#cc4444","#ff0000")
                 line2.setClickEvent(new ClickEvent(ClickEvent.Action.RUN_COMMAND, "/amendlaws " + town.getName()));
 
                 TextComponent line4 = new TextComponent(ChatColor.DARK_GREEN + "Добавить чанк\n (SHIFT+ПКМ)\n");
                 line4.setClickEvent(new ClickEvent(ClickEvent.Action.RUN_COMMAND, "/town claim"));
 
-                TextComponent line5 = new TextComponent(ChatColor.RED + "Удалить чанк");
+                TextComponent line5 = new TextComponent(ChatColor.RED + "Удалить чанк\n");
                 line5.setClickEvent(new ClickEvent(ClickEvent.Action.RUN_COMMAND, "/town unclaim"));
 
-                pages.add(new BaseComponent[]{line1, new TextComponent("\n"), line2, new TextComponent("\n"), line4, new TextComponent("\n"), line5});
+                TextComponent line6 = new TextComponent();
+                if(!(BookTownControl.townAddition.get(town.getUUID()).isContractBook())) {
+                    line6 = new TextComponent(ChatColor.DARK_GREEN + "\nДобавить книгу контрактов\n");
+                    line6.setClickEvent(new ClickEvent(ClickEvent.Action.RUN_COMMAND, "/amendlaws "+town.getName()+" contractbook"));
+                }
+                else {
+                    line6 = new TextComponent(ChatColor.DARK_GREEN + "\nРассмотреть контракты\n");
+                    line6.setClickEvent(new ClickEvent(ClickEvent.Action.RUN_COMMAND, "/amendlaws "+town.getName()+" contractbook"));
+                }
+                pages.add(new BaseComponent[]{line1, new TextComponent("\n"), line2, new TextComponent("\n"), line4, new TextComponent("\n"), line5,line6});
                 return pages.toArray(new BaseComponent[0][]);
             }
             else {
@@ -379,6 +442,20 @@ public class OnBookWrite implements Listener {
                     page1.addExtra(chunkInfo);
                 }
                 TextComponent populationInfo = new TextComponent("Население: " + town.getResidents().size() + "\n");
+                page1.addExtra(populationInfo);
+                int Warriors = 0;
+                for(Army army : BookTownControl.Armys) {
+                    if(army.IsCountryConnected(town)) {
+                        for(Army.ArmyPlayer ap : army.getPlayers()) {
+                            if(Objects.equals(army.GetLink(ap), town.getUUID())) {
+                                Warriors++;
+                            }
+                        }
+
+                    }
+                }
+                DecimalFormat decimalFormat = new DecimalFormat("#");
+                populationInfo = new TextComponent("Численность армии: " + Warriors + " \\ " + decimalFormat.format(Math.ceil(town.getResidents().size() / 3.0)) + "\n");
                 page1.addExtra(populationInfo);
                 TextComponent leaderInfo = new TextComponent("Лидер: " + town.getMayor().getPlayer().getDisplayName());
                 page1.addExtra(leaderInfo);
@@ -519,13 +596,14 @@ public class OnBookWrite implements Listener {
                     town.setTag(name.substring(0, Math.min(name.length(), TownySettings.getMaxTagLength())).replace("_", "").replace("-", ""));
                 }
 
+                BookTownControl.townAddition.put(town.getUUID(),new TownAddition());
                 resident.save();
                 townBlock.save();
                 town.save();
                 world.save();
                 Towny.getPlugin().updateCache(townBlock.getWorldCoord());
                 BukkitTools.fireEvent(new NewTownEvent(town));
-                BookTownControl.ChunckPriorityMap.put(new WorldCoord(world.getBukkitWorld(),key),1);
+                BookTownControl.townAddition.get(town.getUUID()).addChunckPriorityMap(new ChunkCoord(key.getX(),key.getZ(),world.getBukkitWorld().getName()),1);
                 return town;
             }
         }
@@ -562,5 +640,33 @@ public class OnBookWrite implements Listener {
             bookMeta.setLore(null);
             book.setItemMeta(bookMeta);
         }
+    }
+
+    public void invitePlayers(Player sender, List<String> playerList) {
+        if(playerList.isEmpty()) {
+            return;
+        }
+        int invitationsSent = 0;
+        int invalidNames = 0;
+
+        for (String playerName : playerList) {
+            // Проверяем, что игрок с таким именем существует
+            Player invitedPlayer = Bukkit.getPlayerExact(playerName);
+            if (invitedPlayer == null) {
+                invalidNames++;
+                continue;
+            }
+
+            // Отправляем приглашение
+            invitedPlayer.performCommand("town invite " + sender.getName());
+            invitationsSent++;
+        }
+
+        // Выводим сообщение о результатах
+        sender.sendMessage("Все приглашения отправлены!");
+        if (invalidNames > 0) {
+            sender.sendMessage("Не удалось отправить приглашения " + invalidNames + " игрокам.");
+        }
+        sender.sendMessage("Всего отправлено приглашений: " + invitationsSent);
     }
 }
