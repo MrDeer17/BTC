@@ -2,6 +2,7 @@ package gr.btc;
 
 import com.palmergames.bukkit.towny.object.Town;
 import org.bukkit.Bukkit;
+import org.bukkit.OfflinePlayer;
 import org.bukkit.entity.Player;
 
 import java.io.Serializable;
@@ -32,7 +33,7 @@ public class Army implements Serializable {
         return players;
     }
 
-    public ArmyPlayer getPlayer(Player player) {
+    public ArmyPlayer getPlayer(OfflinePlayer player) {
         for (int i = 0; i < players.size(); i++) {
             Army.ArmyPlayer armyPlayer = players.get(i);
             if (armyPlayer.getUUID().equals(player.getUniqueId())) {
@@ -45,8 +46,7 @@ public class Army implements Serializable {
     public UUID GetLink(ArmyPlayer player) {
         return LinkedPlayers.getOrDefault(player.getPlayer().getUniqueId(), null);
     }
-
-    public void SetLink(Player player, UUID town) {
+    public void SetLink(OfflinePlayer player, UUID town) {
         LinkedPlayers.put(player.getUniqueId(),town);
         BookTownControl.saveArmies();
     }
@@ -178,8 +178,8 @@ public class Army implements Serializable {
             return priority;
         }
 
-        public Player getPlayer() {
-            return Bukkit.getPlayer(uuid);
+        public OfflinePlayer getPlayer() {
+            return Bukkit.getOfflinePlayer(uuid);
         }
     }
 }

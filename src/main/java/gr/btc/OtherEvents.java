@@ -15,28 +15,85 @@ import com.palmergames.bukkit.towny.tasks.TownClaim;
 import net.md_5.bungee.api.ChatMessageType;
 import net.md_5.bungee.api.chat.ClickEvent;
 import net.md_5.bungee.api.chat.TextComponent;
-import org.bukkit.Bukkit;
-import org.bukkit.ChatColor;
-import org.bukkit.Material;
-import org.bukkit.Sound;
+import org.bukkit.*;
 import org.bukkit.block.BlockFace;
 import org.bukkit.entity.Player;
 import org.bukkit.event.EventHandler;
 import org.bukkit.event.Listener;
+import org.bukkit.event.entity.PlayerDeathEvent;
 import org.bukkit.event.player.PlayerDropItemEvent;
+import org.bukkit.event.player.PlayerInteractEvent;
 import org.bukkit.event.player.PlayerSwapHandItemsEvent;
 import org.bukkit.inventory.ItemStack;
 import org.bukkit.inventory.meta.BookMeta;
+import org.bukkit.inventory.meta.SkullMeta;
 
-import java.util.Collections;
-import java.util.HashMap;
-import java.util.Map;
-import java.util.Objects;
+import java.text.ParseException;
+import java.text.SimpleDateFormat;
+import java.util.*;
 
 public class OtherEvents implements Listener {
     private final Map<Player, Long> lastEventTimeMap = new HashMap<>();
 
+    @EventHandler
+    public void onPlayerDeath(PlayerDeathEvent event) {
+        Player player = event.getEntity();
 
+        if (BookTownControl.IsPlayerInWar(player) != null) {
+            ItemStack head = new ItemStack(Material.PLAYER_HEAD);
+            SkullMeta meta = (SkullMeta) head.getItemMeta();
+            meta.setOwner(player.getName());
+            List<String> lore = new ArrayList<>();
+            lore.add(ChatColor.GREEN + "ПКМ на чанк " + ChatColor.YELLOW + TownyUniverse.getInstance().getResident(player.getUniqueId()).getTownOrNull().getName() + ChatColor.GREEN + " чтобы захватить");
+            lore.add(ChatColor.GREEN + "или на чанк своей страны чтобы отбить чанк обратно");
+            lore.add("");
+
+            SimpleDateFormat dateFormat = new SimpleDateFormat("dd.MM.yyyy HH:mm");
+            Date expirationDate = new Date(System.currentTimeMillis() + 12 * 60 * 60 * 1000); // Текущее время + 12 часов
+            String expirationDateString = dateFormat.format(expirationDate);
+            SimpleDateFormat monthYearFormat = new SimpleDateFormat("yyyy.MM");
+            String monthYearString = monthYearFormat.format(expirationDate);
+
+            expirationDateString = monthYearString + " " + expirationDateString;
+            lore.add(ChatColor.YELLOW + "Годен до: " + expirationDateString);
+            meta.setLore(lore);
+            head.setItemMeta(meta);
+
+            player.getWorld().dropItem(player.getLocation(), head);
+        }
+    }
+
+    @EventHandler
+    public void onPlayerInteract(PlayerInteractEvent event) {
+        Player player = event.getPlayer();
+        ItemStack item = event.getItem();
+
+        if (item != null && item.getType() == Material.PLAYER_HEAD && item.hasItemMeta() && item.getItemMeta() instanceof SkullMeta) {
+            SkullMeta meta = (SkullMeta) item.getItemMeta();
+                List<String> lore = meta.getLore();
+
+                if (lore != null && lore.size() >= 4) {
+                    String expirationDateString = lore.get(3).substring(11);
+                    SimpleDateFormat dateFormat = new SimpleDateFormat("yyyy.MM dd.MM.yyyy HH:mm");
+
+                    try {
+                        Date expirationDate = dateFormat.parse(expirationDateString);
+
+                        if (expirationDate.before(new Date())) {
+                            player.sendMessage(ChatColor.RED + "Срок годности предмета истек!");
+                            event.setCancelled(true);
+                            item.setAmount(0);
+                            return;
+                        }
+                    } catch (ParseException e) {
+                        e.printStackTrace();
+                    }
+                }
+            }
+
+
+        // Ваш код для работы с объектом Town
+    }
     @EventHandler
     public void onPlayerEntersTownBorder(PlayerChangePlotEvent event) {
         Player player = event.getPlayer();
@@ -92,7 +149,6 @@ public class OtherEvents implements Listener {
 
         // Ваш код обработки события здесь
     }
-
     @EventHandler
     public void onTownClaim(TownClaimEvent event) {
         Player player = event.getResident().getPlayer();

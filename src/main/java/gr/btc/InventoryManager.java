@@ -1,10 +1,7 @@
 package gr.btc;
 import com.palmergames.bukkit.towny.TownyUniverse;
 import com.palmergames.bukkit.towny.object.Town;
-import org.bukkit.Bukkit;
-import org.bukkit.ChatColor;
-import org.bukkit.Material;
-import org.bukkit.World;
+import org.bukkit.*;
 import org.bukkit.enchantments.Enchantment;
 import org.bukkit.entity.Player;
 import org.bukkit.event.EventHandler;
@@ -14,6 +11,7 @@ import org.bukkit.event.inventory.InventoryClickEvent;
 import org.bukkit.event.inventory.InventoryType;
 import org.bukkit.inventory.Inventory;
 import org.bukkit.inventory.InventoryHolder;
+import org.bukkit.inventory.ItemFlag;
 import org.bukkit.inventory.ItemStack;
 import org.bukkit.inventory.meta.ItemMeta;
 import org.bukkit.inventory.meta.SkullMeta;
@@ -33,16 +31,44 @@ public class InventoryManager implements Listener {
 
     public static void openInventoryMAIN(Player player) {
         MyHolder holder = new MyHolder();
-        Inventory inventory = Bukkit.createInventory(holder, 27, "Главное меню");
+        Inventory inventory = Bukkit.createInventory(holder, 9*5, "Главное меню");
 
         ItemStack crossbow = new ItemStack(Material.CROSSBOW);
         ItemMeta crossbowMeta = crossbow.getItemMeta();
-        crossbowMeta.setDisplayName("Армии");
-        crossbowMeta.addEnchant(Enchantment.DURABILITY, 1, true); // Скрытое зачарование
+        crossbowMeta.setDisplayName(ChatColor.YELLOW+"Армии");
+        crossbowMeta.addEnchant(Enchantment.DURABILITY, 1, true);
+        crossbowMeta.addItemFlags(ItemFlag.HIDE_ENCHANTS);
         crossbow.setItemMeta(crossbowMeta);
-
-        // Расположите CROSSBOW в центре
         inventory.setItem(13, crossbow);
+
+        // Добавьте NetheriteSword слева от CROSSBOW
+        ItemStack netheriteSword = new ItemStack(Material.NETHERITE_SWORD);
+        ItemMeta netheriteSwordMeta = netheriteSword.getItemMeta();
+        netheriteSwordMeta.setDisplayName(ChatColor.RED+"Действующие войны");
+        netheriteSwordMeta.addItemFlags(ItemFlag.HIDE_ATTRIBUTES);
+        netheriteSword.setItemMeta(netheriteSwordMeta);
+        inventory.setItem(11, netheriteSword);
+
+        netheriteSword = new ItemStack(Material.DIAMOND_SWORD);
+        netheriteSwordMeta = netheriteSword.getItemMeta();
+        netheriteSwordMeta.setDisplayName(ChatColor.RED+"-");
+        netheriteSwordMeta.addItemFlags(ItemFlag.HIDE_ATTRIBUTES);
+        netheriteSword.setItemMeta(netheriteSwordMeta);
+        inventory.setItem(15, netheriteSword);
+
+        // Добавьте сундук внизу по центру
+        ItemStack chest = new ItemStack(Material.CHEST);
+        ItemMeta chestMeta = chest.getItemMeta();
+        chestMeta.setDisplayName(ChatColor.GOLD+"Моя страна");
+        chest.setItemMeta(chestMeta);
+        inventory.setItem(30, chest);
+
+        // Добавьте эндерсундук внизу справа
+        ItemStack enderChest = new ItemStack(Material.ENDER_CHEST);
+        ItemMeta enderChestMeta = enderChest.getItemMeta();
+        enderChestMeta.setDisplayName(ChatColor.YELLOW+"Другие страны");
+        enderChest.setItemMeta(enderChestMeta);
+        inventory.setItem(32, enderChest);
 
         holder.setInventory(inventory);
         player.openInventory(inventory);
@@ -59,14 +85,14 @@ public class InventoryManager implements Listener {
 
         ItemStack chain = new ItemStack(Material.CHAIN);
         ItemMeta chainMeta = chain.getItemMeta();
-        chainMeta.setDisplayName("Присоединиться к армии");
-        chainMeta.setLore(Arrays.asList("Описание предмета"));
+        chainMeta.setDisplayName(ChatColor.WHITE+"Присоединиться к армии");
+        //chainMeta.setLore(Arrays.asList("Описание предмета"));
         chain.setItemMeta(chainMeta);
 
         ItemStack enderEye = new ItemStack(Material.ENDER_EYE);
         ItemMeta enderEyeMeta = enderEye.getItemMeta();
-        enderEyeMeta.setDisplayName("Создать армию");
-        enderEyeMeta.setLore(Arrays.asList("Описание предмета"));
+        enderEyeMeta.setDisplayName(ChatColor.YELLOW+"Создать армию");
+        enderEyeMeta.setLore(Arrays.asList(ChatColor.WHITE+"Потребуется 2 стака золота"));
         enderEye.setItemMeta(enderEyeMeta);
 
         inventory.setItem(12, chain);
@@ -155,7 +181,7 @@ public class InventoryManager implements Listener {
                 ItemStack skull = new ItemStack(Material.PLAYER_HEAD);
                 SkullMeta skullMeta = (SkullMeta) skull.getItemMeta();
                 skullMeta.setOwningPlayer(member.getPlayer());
-                skullMeta.setDisplayName(ChatColor.YELLOW + member.getPlayer().getDisplayName());
+                skullMeta.setDisplayName(ChatColor.YELLOW + Bukkit.getOfflinePlayer(member.getUUID()).getName());
 
                 // Создаем список для отображения дополнительной информации об игроке
                 List<String> lore = new ArrayList<>();
@@ -164,7 +190,13 @@ public class InventoryManager implements Listener {
                     lore.add(ChatColor.GREEN + "Ничего не охраняет");
                 }
                 else {
-                    lore.add(ChatColor.GOLD + "Охраняет: " + TownyUniverse.getInstance().getTown(army.GetLink(member)).getName());
+                    if(TownyUniverse.getInstance().getTown(army.GetLink(member)) == null) {
+                        army.SetLink(member.getPlayer(),null);
+                        lore.add(ChatColor.GREEN + "Ничего не охраняет");
+                    }
+                    else {
+                        lore.add(ChatColor.GOLD + "Охраняет: " + TownyUniverse.getInstance().getTown(army.GetLink(member)).getName());
+                    }
                 }
 
                 // Добавьте другую информацию, которую вы хотите отобразить
@@ -187,12 +219,13 @@ public class InventoryManager implements Listener {
 
     public void openPlayerControlMenu(Player player, Army.ArmyPlayer selectedPlayer) {
         MyHolder holder = new MyHolder();
-        Inventory inventory = Bukkit.createInventory(holder, 27, "Управление бойцом "+selectedPlayer.getPlayer().getDisplayName());
+        Inventory inventory = Bukkit.createInventory(holder, 27, "Управление бойцом "+selectedPlayer.getPlayer().getName());
 
         // Добавляем предметы в инвентарь для каждого действия
         ItemStack assignToCityItem = new ItemStack(Material.DIAMOND_SWORD);
         ItemMeta assignToCityMeta = assignToCityItem.getItemMeta();
         assignToCityMeta.setDisplayName(ChatColor.YELLOW + "Поставить на службу в город");
+        assignToCityMeta.addItemFlags(ItemFlag.HIDE_ATTRIBUTES);
         assignToCityItem.setItemMeta(assignToCityMeta);
         inventory.setItem(10, assignToCityItem);
 
@@ -205,16 +238,22 @@ public class InventoryManager implements Listener {
         ItemStack changePriorityItem = new ItemStack(Material.NETHERITE_UPGRADE_SMITHING_TEMPLATE);
         ItemMeta changePriorityMeta = changePriorityItem.getItemMeta();
         changePriorityMeta.setDisplayName(ChatColor.YELLOW + "Изменить приоритет");
+        changePriorityMeta.addItemFlags(ItemFlag.HIDE_POTION_EFFECTS);
         changePriorityItem.setItemMeta(changePriorityMeta);
         inventory.setItem(14, changePriorityItem);
 
+        changePriorityItem = new ItemStack(Material.BARRIER);
+        changePriorityMeta = changePriorityItem.getItemMeta();
+        changePriorityMeta.setDisplayName(ChatColor.YELLOW + "Выйти");
+        changePriorityItem.setItemMeta(changePriorityMeta);
+        inventory.setItem(16, changePriorityItem);
         // Открываем инвентарь игроку
         player.openInventory(inventory);
     }
     public static void openInventoryArmyControl(Player player) {
         MyHolder holder = new MyHolder();
-        Inventory inventory = Bukkit.createInventory(holder, 27, "Военные конфликты");
         Army army = BookTownControl.GetArmyPlayerIn(player);
+        Inventory inventory = Bukkit.createInventory(holder, 27, "Моя армия "+army.getName());
         int priority = -1;
         if (army != null) {
             Army.ArmyPlayer armyPlayer = army.getPlayer(player);
@@ -229,15 +268,16 @@ public class InventoryManager implements Listener {
         if(priority >= 0) {
             ItemStack ironSword = new ItemStack(Material.IRON_SWORD);
             ItemMeta ironSwordMeta = ironSword.getItemMeta();
-            ironSwordMeta.setDisplayName("Военные конфликты");
-            ironSwordMeta.setLore(Arrays.asList("Ваша армия участвует в "+1+" военных конфликтах"));
+            ironSwordMeta.setDisplayName(ChatColor.RED+"Военные конфликты");
+            ironSwordMeta.setLore(Arrays.asList(ChatColor.RED+"Ваша армия участвует в "+BookTownControl.CheckForWarsInArmy(army).size()+" военных конфликтах"));
+            ironSwordMeta.addItemFlags(ItemFlag.HIDE_ATTRIBUTES);
             ironSword.setItemMeta(ironSwordMeta);
             inventory.setItem(4, ironSword);
 
             ItemStack barrier = new ItemStack(Material.STRUCTURE_VOID);
             ItemMeta barrierMeta = barrier.getItemMeta();
-            barrierMeta.setDisplayName("Покинуть армию");
-            barrierMeta.setLore(Arrays.asList("Описание предмета"));
+            barrierMeta.setDisplayName(ChatColor.RED+"Покинуть армию");
+            //barrierMeta.setLore(Arrays.asList("Описание предмета"));
             barrier.setItemMeta(barrierMeta);
             inventory.setItem(14, barrier);
         }
@@ -245,8 +285,9 @@ public class InventoryManager implements Listener {
         if(priority >= 1) {
             ItemStack woodenSword = new ItemStack(Material.WOODEN_SWORD);
             ItemMeta woodenSwordMeta = woodenSword.getItemMeta();
-            woodenSwordMeta.setDisplayName("Список бойцов");
-            woodenSwordMeta.setLore(Arrays.asList("Описание предмета"));
+            woodenSwordMeta.setDisplayName(ChatColor.YELLOW+"Список бойцов");
+            woodenSwordMeta.addItemFlags(ItemFlag.HIDE_ATTRIBUTES);
+            //woodenSwordMeta.setLore(Arrays.asList("Описание предмета"));
             woodenSword.setItemMeta(woodenSwordMeta);
             inventory.setItem(13, woodenSword);
         }
@@ -258,23 +299,23 @@ public class InventoryManager implements Listener {
         if(priority >= 3) {
             ItemStack birchDoor = new ItemStack(Material.BIRCH_DOOR);
             ItemMeta birchDoorMeta = birchDoor.getItemMeta();
-            birchDoorMeta.setDisplayName("Пригласить в армию");
-            birchDoorMeta.setLore(Arrays.asList("Описание предмета"));
+            birchDoorMeta.setDisplayName(ChatColor.YELLOW+"Пригласить в армию");
+            //birchDoorMeta.setLore(Arrays.asList("Описание предмета"));
             birchDoor.setItemMeta(birchDoorMeta);
             inventory.setItem(11, birchDoor);
             if(army.isOpen()) {
                 ItemStack redstoneTorch = new ItemStack(Material.REDSTONE_TORCH);
                 ItemMeta redstoneTorchMeta = redstoneTorch.getItemMeta();
-                redstoneTorchMeta.setDisplayName("Свободный вход включен");
-                redstoneTorchMeta.setLore(Arrays.asList("Нажмите для переключения"));
+                redstoneTorchMeta.setDisplayName(ChatColor.GREEN+"Свободный вход включен");
+                redstoneTorchMeta.setLore(Arrays.asList(ChatColor.YELLOW+"Нажмите для переключения"));
                 redstoneTorch.setItemMeta(redstoneTorchMeta);
                 inventory.setItem(20, redstoneTorch);
             } else {
                 // Если армия закрыта, добавляем Lever
                 ItemStack lever = new ItemStack(Material.LEVER);
                 ItemMeta leverMeta = lever.getItemMeta();
-                leverMeta.setDisplayName("Свободный вход выключен");
-                leverMeta.setLore(Arrays.asList("Нажмите для переключения"));
+                leverMeta.setDisplayName(ChatColor.RED+"Свободный вход выключен");
+                leverMeta.setLore(Arrays.asList(ChatColor.YELLOW+"Нажмите для переключения"));
                 lever.setItemMeta(leverMeta);
                 inventory.setItem(20, lever);
             }
@@ -283,14 +324,16 @@ public class InventoryManager implements Listener {
         if(priority >= 4) {
             ItemStack ponder = new ItemStack(Material.GOAT_HORN);
             ItemMeta ponderMeta = ponder.getItemMeta();
-            ponderMeta.setDisplayName("Присоединиться к стране");
-            ponderMeta.setLore(Arrays.asList("Описание предмета"));
+            ponderMeta.setDisplayName(ChatColor.YELLOW+"Присоединиться к стране");
+            //ponderMeta.setLore(Arrays.asList("Описание предмета"));
+            ponderMeta.addItemFlags(ItemFlag.HIDE_POTION_EFFECTS);
             ponder.setItemMeta(ponderMeta);
             inventory.setItem(12, ponder);
             ponder = new ItemStack(Material.TURTLE_HELMET);
             ponderMeta = ponder.getItemMeta();
-            ponderMeta.setDisplayName("Отозвать армию из страны");
-            ponderMeta.setLore(Arrays.asList("Описание предмета"));
+            ponderMeta.setDisplayName(ChatColor.RED+"Отозвать армию из страны");
+            ponderMeta.addItemFlags(ItemFlag.HIDE_ATTRIBUTES);
+            //ponderMeta.setLore(Arrays.asList("Описание предмета"));
             ponder.setItemMeta(ponderMeta);
             inventory.setItem(21, ponder);
 
@@ -299,15 +342,15 @@ public class InventoryManager implements Listener {
         if(priority >= 5) {
             ItemStack pufferfish = new ItemStack(Material.BARRIER);
             ItemMeta pufferfishMeta = pufferfish.getItemMeta();
-            pufferfishMeta.setDisplayName("Распустить армию");
-            pufferfishMeta.setLore(Arrays.asList("Описание предмета"));
+            pufferfishMeta.setDisplayName(ChatColor.RED+"Распустить армию");
+            //pufferfishMeta.setLore(Arrays.asList("Описание предмета"));
             pufferfish.setItemMeta(pufferfishMeta);
             inventory.setItem(15, pufferfish);
         }
 
         ItemStack noPermissionItem = new ItemStack(Material.RED_TERRACOTTA);
         ItemMeta noPermissionMeta = noPermissionItem.getItemMeta();
-        noPermissionMeta.setDisplayName("Недостаточно прав");
+        noPermissionMeta.setDisplayName(ChatColor.GRAY+"Недостаточно прав");
         noPermissionItem.setItemMeta(noPermissionMeta);
 
         for (int i = 11; i <= 15; i++) {
@@ -481,7 +524,7 @@ public class InventoryManager implements Listener {
         // Открытие инвентаря для игрока
         player.openInventory(inventory);
     }
-    public void assignPlayerToCity(Player player, Player MainPlayer) {
+    public void assignPlayerToCity(Player player, OfflinePlayer MainPlayer) {
         Army army = BookTownControl.GetArmyPlayerIn(player);
         MyHolder holder = new MyHolder();
         // Получаем список привязанных стран к армии
@@ -493,7 +536,7 @@ public class InventoryManager implements Listener {
             return;
         }
 
-        Inventory countryMenu = Bukkit.createInventory(holder, 27, "Пост игрока "+MainPlayer.getDisplayName());
+        Inventory countryMenu = Bukkit.createInventory(holder, 27, "Пост игрока "+MainPlayer.getName());
 
         for (UUID countryId : connectedCountrys) {
             Town country = TownyUniverse.getInstance().getTown(countryId);
@@ -541,13 +584,288 @@ public class InventoryManager implements Listener {
 
         player.openInventory(countryMenu);
     }
+    public static void CountriesStatisticAndJoinMenu(Player player, int page) {
+        List<Town> countries = new ArrayList<>(TownyUniverse.getInstance().getTowns());
+
+        MyHolder holder = new MyHolder();
+        int pageSize = 25; // Количество стран, отображаемых на одной странице
+        int totalPages = (int) Math.ceil((double) countries.size() / pageSize); // Общее количество страниц
+
+        // Проверка валидности номера страницы
+        if (page < 1) {
+            player.sendMessage(ChatColor.RED + "Некорректный номер страницы.");
+            return;
+        } else if (page > totalPages) {
+            page = totalPages;
+        }
+
+        // Создание инвентаря для меню стран
+        Inventory inventory = Bukkit.createInventory(holder, 36, "Страны (Страница " + (page) + "/" + totalPages + ")");
+
+        // Вычисление индексов стран, отображаемых на текущей странице
+        int startIndex = (page - 1) * pageSize;
+        int endIndex = Math.min(startIndex + pageSize, countries.size());
+
+        // Добавление стран на текущей странице в инвентарь
+        for (int i = startIndex; i < endIndex; i++) {
+            Town country = countries.get(i);
+            ItemStack item = new ItemStack(Material.PAPER);
+            ItemMeta meta = item.getItemMeta();
+            meta.setDisplayName(ChatColor.GOLD + country.getName());
+
+            // Формирование описания страны
+            List<String> lore = new ArrayList<>();
+            lore.add(ChatColor.YELLOW + "Население: " + country.getResidents().size());
+            lore.add(ChatColor.YELLOW + "Глава: " + country.getMayor());
+            if(country.isOpen()) {
+                lore.add(ChatColor.GREEN + "Свободный вход");
+            }
+            else {
+                lore.add(ChatColor.GREEN + "Вход по подтверждению");
+            }
+
+
+            meta.setLore(lore);
+            item.setItemMeta(meta);
+            inventory.addItem(item);
+        }
+
+        // Добавление кнопки "Назад", если есть предыдущая страница
+        if (page > 1) {
+            ItemStack backButton = new ItemStack(Material.ARROW);
+            ItemMeta backButtonMeta = backButton.getItemMeta();
+            backButtonMeta.setDisplayName(ChatColor.YELLOW + "◀️ Назад");
+            backButton.setItemMeta(backButtonMeta);
+            inventory.setItem(35, backButton);
+        }
+
+        // Добавление кнопки "Вперед", если есть следующая страница
+        if (page < totalPages) {
+            ItemStack nextButton = new ItemStack(Material.ARROW);
+            ItemMeta nextButtonMeta = nextButton.getItemMeta();
+            nextButtonMeta.setDisplayName(ChatColor.YELLOW + "Вперед ▶️");
+            nextButton.setItemMeta(nextButtonMeta);
+            inventory.setItem(27, nextButton);
+        }
+
+        ItemStack exitButton = new ItemStack(Material.BARRIER);
+        ItemMeta exitButtonMeta = exitButton.getItemMeta();
+        exitButtonMeta.setDisplayName(ChatColor.YELLOW + "Выйти");
+        exitButton.setItemMeta(exitButtonMeta);
+        inventory.setItem(31, exitButton);
+
+        // Открытие инвентаря для игрока
+        player.openInventory(inventory);
+    }
+
+    public static void openInventoryCountryControl(Player player) {
+        MyHolder holder = new MyHolder();
+        Town town = TownyUniverse.getInstance().getResident(player.getUniqueId()).getTownOrNull();
+        if(town == null) {
+            CountriesStatisticAndJoinMenu(player,1);
+            return;
+        }
+
+        Inventory inventory = Bukkit.createInventory(holder, 27, "Моя страна "+town.getName());
+        int priority = 0;
+        if (BookTownControl.townAddition.get(town.getUUID()).retso() != null && BookTownControl.townAddition.get(town.getUUID()).retso().equals(player.getUniqueId())) {
+            priority = 1;
+        }
+        else if(town.getMayor().getPlayer().equals(player)) {
+            priority = 2;
+        }
+
+        if(priority >= 0) {
+            ItemStack ironSword = new ItemStack(Material.IRON_SWORD);
+            ItemMeta ironSwordMeta = ironSword.getItemMeta();
+            ironSwordMeta.setDisplayName(ChatColor.RED+"Военные конфликты");
+            ironSwordMeta.setLore(Arrays.asList(ChatColor.RED+"Ваша страна "+(!BookTownControl.CheckForWarInTown(town).equals(null) ? "" : "не ")+"участвует в военном конфликте"));
+            ironSwordMeta.addItemFlags(ItemFlag.HIDE_ATTRIBUTES);
+            ironSword.setItemMeta(ironSwordMeta);
+            inventory.setItem(4, ironSword);
+
+            ItemStack barrier = new ItemStack(Material.STRUCTURE_VOID);
+            ItemMeta barrierMeta = barrier.getItemMeta();
+            barrierMeta.setDisplayName(ChatColor.RED+"Покинуть страну");
+            //barrierMeta.setLore(Arrays.asList("Описание предмета"));
+            barrier.setItemMeta(barrierMeta);
+            inventory.setItem(14, barrier);
+        }
+
+        if(priority >= 1) {
+            ItemStack woodenSword = new ItemStack(Material.WOODEN_SWORD);
+            ItemMeta woodenSwordMeta = woodenSword.getItemMeta();
+            woodenSwordMeta.setDisplayName(ChatColor.YELLOW+"Список участников");
+            //woodenSwordMeta.setLore(Arrays.asList("Описание предмета"));
+            woodenSwordMeta.addItemFlags(ItemFlag.HIDE_ATTRIBUTES);
+            woodenSword.setItemMeta(woodenSwordMeta);
+            inventory.setItem(13, woodenSword);
+            ItemStack birchDoor = new ItemStack(Material.BIRCH_DOOR);
+            ItemMeta birchDoorMeta = birchDoor.getItemMeta();
+            birchDoorMeta.setDisplayName(ChatColor.YELLOW+"Пригласить в страну");
+            //birchDoorMeta.setLore(Arrays.asList("Описание предмета"));
+            birchDoor.setItemMeta(birchDoorMeta);
+            inventory.setItem(11, birchDoor);
+            birchDoor = new ItemStack(Material.KNOWLEDGE_BOOK);
+            birchDoorMeta = birchDoor.getItemMeta();
+            birchDoorMeta.setDisplayName(ChatColor.YELLOW+"Рассмотреть контракты");
+            //birchDoorMeta.setLore(Arrays.asList("Описание предмета"));
+            birchDoor.setItemMeta(birchDoorMeta);
+            inventory.setItem(12, birchDoor);
+            if(town.isOpen()) {
+                ItemStack redstoneTorch = new ItemStack(Material.REDSTONE_TORCH);
+                ItemMeta redstoneTorchMeta = redstoneTorch.getItemMeta();
+                redstoneTorchMeta.setDisplayName(ChatColor.GREEN+"Свободный вход включен");
+                redstoneTorchMeta.setLore(Arrays.asList(ChatColor.YELLOW+"Нажмите для переключения"));
+                redstoneTorch.setItemMeta(redstoneTorchMeta);
+                inventory.setItem(20, redstoneTorch);
+            } else {
+                // Если армия закрыта, добавляем Lever
+                ItemStack lever = new ItemStack(Material.LEVER);
+                ItemMeta leverMeta = lever.getItemMeta();
+                leverMeta.setDisplayName(ChatColor.RED+"Свободный вход выключен");
+                leverMeta.setLore(Arrays.asList(ChatColor.YELLOW+"Нажмите для переключения"));
+                lever.setItemMeta(leverMeta);
+                inventory.setItem(20, lever);
+            }
+        }
+
+        if(priority >= 2) {
+            ItemStack pufferfish = new ItemStack(Material.BARRIER);
+            ItemMeta pufferfishMeta = pufferfish.getItemMeta();
+            pufferfishMeta.setDisplayName(ChatColor.RED+"Уничтожить страну");
+            //pufferfishMeta.setLore(Arrays.asList("Описание предмета"));
+            pufferfish.setItemMeta(pufferfishMeta);
+            inventory.setItem(15, pufferfish);
+            // Добавьте предметы для priority >= 2
+            if(!BookTownControl.CheckForWar(town)) {
+                pufferfish = new ItemStack(Material.NETHERITE_SWORD);
+                pufferfishMeta = pufferfish.getItemMeta();
+                pufferfishMeta.setDisplayName(ChatColor.RED+"Начать войну");
+                pufferfishMeta.addItemFlags(ItemFlag.HIDE_ATTRIBUTES);
+                pufferfish.setItemMeta(pufferfishMeta);
+                inventory.setItem(21, pufferfish);
+            }
+
+            // Добавьте предметы для priority >= 2
+        }
+
+        ItemStack noPermissionItem = new ItemStack(Material.RED_TERRACOTTA);
+        ItemMeta noPermissionMeta = noPermissionItem.getItemMeta();
+        noPermissionMeta.setDisplayName("Недостаточно прав");
+        noPermissionItem.setItemMeta(noPermissionMeta);
+
+        for (int i = 11; i <= 15; i++) {
+            if (inventory.getItem(i) == null || inventory.getItem(i).getType() == Material.AIR) {
+                inventory.setItem(i, noPermissionItem);
+            }
+        }
+
+        holder.setInventory(inventory);
+        player.openInventory(inventory);
+    }
+
+    public static void showGlobalWarsMenu(Player player, int page) {
+        List<War> wars = new ArrayList<>(BookTownControl.Wars);
+        Army army = BookTownControl.GetArmyPlayerIn(player);
+
+        if (wars.isEmpty()) {
+            player.sendMessage(ChatColor.RED + "Пока что в мире нет конфликтов");
+            player.closeInventory();
+            return;
+        }
+        MyHolder holder = new MyHolder();
+        int pageSize = 25; // Количество стран, отображаемых на одной странице
+        int totalPages = (int) Math.ceil((double) wars.size() / pageSize); // Общее количество страниц
+
+        // Проверка валидности номера страницы
+        if (page < 1) {
+            player.sendMessage(ChatColor.RED + "Некорректный номер страницы.");
+            return;
+        } else if (page > totalPages) {
+            page = totalPages;
+        }
+
+        // Создание инвентаря для меню стран
+        Inventory inventory = Bukkit.createInventory(holder, 36, ChatColor.DARK_BLUE + "Список войн (Страница " + (page) + "/" + totalPages + ")");
+
+        // Вычисление индексов стран, отображаемых на текущей странице
+        int startIndex = (page - 1) * pageSize;
+        int endIndex = Math.min(startIndex + pageSize, wars.size());
+
+        // Добавление стран на текущей странице в инвентарь
+        for (int i = startIndex; i < endIndex; i++) {
+            War war = wars.get(i);
+            ItemStack item = new ItemStack(Material.PAPER);
+            ItemMeta meta = item.getItemMeta();
+
+            // Заголовок элемента списка
+            String displayName = ChatColor.GOLD + "Война между " + ChatColor.YELLOW + TownyUniverse.getInstance().getTown(war.sides1.get(0)).getName() + ChatColor.GOLD + " и " + ChatColor.YELLOW + TownyUniverse.getInstance().getTown(war.sides2.get(0)).getName();
+            meta.setDisplayName(displayName);
+
+            // Формирование описания войны
+            List<String> lore = new ArrayList<>();
+            lore.add(ChatColor.YELLOW + "Статус: " + (war.isStarted ? ChatColor.RED + "Война начата" : ChatColor.GREEN + "Война не начата"));
+            List<String> SIDes1 = new ArrayList<>();
+            List<String> SIDes2 = new ArrayList<>();
+            List<String> Warriors1 = new ArrayList<>();
+            List<String> Warriors2 = new ArrayList<>();
+            for(UUID u : war.sides1) {
+                SIDes1.add(TownyUniverse.getInstance().getTown(u).getName());
+            }
+            for(UUID u : war.sides2) {
+                SIDes2.add(TownyUniverse.getInstance().getTown(u).getName());
+            }
+            for(OfflinePlayer p : war.side1Warriors) {
+                Warriors1.add(p.getName());
+            }
+            for(OfflinePlayer p : war.side2Warriors) {
+                Warriors1.add(p.getName());
+            }
+            lore.add(ChatColor.YELLOW + "Участники стороны 1: " + ChatColor.WHITE + String.join(", ", SIDes1));
+            lore.add(ChatColor.YELLOW + "Участники стороны 2: " + ChatColor.WHITE + String.join(", ", SIDes2));
+            lore.add(ChatColor.YELLOW + "Воины стороны 1: " + ChatColor.WHITE + String.join(", ", Warriors1));
+            lore.add(ChatColor.YELLOW + "Воины стороны 2: " + ChatColor.WHITE + String.join(", ", Warriors2));
+
+            meta.setLore(lore);
+            item.setItemMeta(meta);
+            inventory.addItem(item);
+        }
+
+        // Добавление кнопки "Назад", если есть предыдущая страница
+        if (page > 1) {
+            ItemStack backButton = new ItemStack(Material.ARROW);
+            ItemMeta backButtonMeta = backButton.getItemMeta();
+            backButtonMeta.setDisplayName(ChatColor.YELLOW + "◀️ Назад");
+            backButton.setItemMeta(backButtonMeta);
+            inventory.setItem(35, backButton);
+        }
+
+        // Добавление кнопки "Вперед", если есть следующая страница
+        if (page < totalPages) {
+            ItemStack nextButton = new ItemStack(Material.ARROW);
+            ItemMeta nextButtonMeta = nextButton.getItemMeta();
+            nextButtonMeta.setDisplayName(ChatColor.YELLOW + "Вперед ▶️");
+            nextButton.setItemMeta(nextButtonMeta);
+            inventory.setItem(27, nextButton);
+        }
+
+        ItemStack exitButton = new ItemStack(Material.BARRIER);
+        ItemMeta exitButtonMeta = exitButton.getItemMeta();
+        exitButtonMeta.setDisplayName(ChatColor.YELLOW + "Выйти");
+        exitButton.setItemMeta(exitButtonMeta);
+        inventory.setItem(31, exitButton);
+
+        // Открытие инвентаря для игрока
+        player.openInventory(inventory);
+    }
     @EventHandler
     public void onInventoryClick(InventoryClickEvent event) {
         ItemStack clickedItem = event.getCurrentItem();
         Inventory clickedInventory = event.getClickedInventory();
         if(clickedInventory == null) return;
         InventoryHolder holder = event.getClickedInventory().getHolder();
-        if (clickedInventory == null || event.getClickedInventory().getType() != InventoryType.CHEST || clickedItem == null|| clickedItem.getType() == Material.AIR) {
+        if (event.getClickedInventory().getType() != InventoryType.CHEST || clickedItem == null|| clickedItem.getType() == Material.AIR) {
             // Clicked inventory is null, handle the situation accordingly
             if (holder instanceof MyHolder) {
                 event.setCancelled(true);
@@ -564,16 +882,28 @@ public class InventoryManager implements Listener {
 
                 String inventoryTitle = event.getView().getTitle();
                 if (inventoryTitle.equalsIgnoreCase("Главное меню")) {
-                    if (displayName.equals("Армии")) {
+                    if (displayName.contains("Армии")) {
                         openInventoryArmyCrOrJoin(player);
+                        return;
+                    }
+                    else if(displayName.contains("Действующие войны")) {
+                        showGlobalWarsMenu(player,1);
+                        return;
+                    }
+                    else if(displayName.contains("Моя страна")) {
+                        openInventoryCountryControl(player);
+                        return;
+                    }
+                    else if(displayName.contains("Другие страны")) {
+                        CountriesStatisticAndJoinMenu(player,1);
                         return;
                     }
                 }
                 else if(inventoryTitle.equalsIgnoreCase("Армии")) {
-                    if (displayName.equals("Присоединиться к армии")) {
+                    if (displayName.contains("Присоединиться к армии")) {
                         showArmiesMenu(player,1);
                     }
-                    else if (displayName.equals("Создать армию")) {
+                    else if (displayName.contains("Создать армию")) {
                         player.closeInventory();
                         ItemStack goldIngot = new ItemStack(Material.GOLD_INGOT);
                         int goldIngotCount = 0;
@@ -584,9 +914,6 @@ public class InventoryManager implements Listener {
                         } // Подсчитываем количество золотых слитков в инвентаре игрока
 
                         if (goldIngotCount >= 128) {
-                            ItemStack takenGoldIngot = new ItemStack(Material.GOLD_INGOT, 128);
-                            player.getInventory().removeItem(new ItemStack(Material.GOLD_INGOT, 64));
-                            player.getInventory().removeItem(new ItemStack(Material.GOLD_INGOT, 64));
                             player.sendMessage("Для отмены введите cancel");
                             player.sendMessage("Введите название армии в чате:");
                             // Регистрируем слушателя чата
@@ -605,23 +932,34 @@ public class InventoryManager implements Listener {
                                 String armyName = message;
                                 if (armyName.equalsIgnoreCase("cancel") || armyName.equalsIgnoreCase("c") || armyName.equalsIgnoreCase("n") || armyName.equalsIgnoreCase("no") || armyName.equalsIgnoreCase("отмена") || armyName.equalsIgnoreCase("н") || armyName.equalsIgnoreCase("нет") || armyName.equalsIgnoreCase("о")) {
                                     // Отмена
-                                    player.sendMessage(ChatColor.RED + "Создание отменено, золото выброшено рядом с вами");
+                                    player.sendMessage(ChatColor.RED + "Создание отменено");
                                     World world = player.getWorld();
                                     new BukkitRunnable() {
                                         @Override
                                         public void run() {
                                             // Drop the item synchronously
-                                            world.dropItem(player.getLocation(), new ItemStack(Material.GOLD_INGOT,64));
-                                            world.dropItem(player.getLocation(), new ItemStack(Material.GOLD_INGOT,64));
                                         }
                                     }.runTask(plugin);
 
                                 }
                                 else {
-                                    Army newArmy = new Army(armyName);
-                                    newArmy.addPlayer(player.getUniqueId(),5);
-                                    BookTownControl.Armys.add(newArmy);
-                                    player.sendMessage("Армия "+armyName+" создана\n/army - меню армии");
+                                    int goldIngotCount2 = 0;
+                                    for (ItemStack item : player.getInventory().getContents()) {
+                                        if (item != null && item.getType() == Material.GOLD_INGOT) {
+                                            goldIngotCount2 += item.getAmount();
+                                        }
+                                    }
+                                    if(goldIngotCount2 >= 128) {
+                                        player.getInventory().removeItem(new ItemStack(Material.GOLD_INGOT, 64));
+                                        player.getInventory().removeItem(new ItemStack(Material.GOLD_INGOT, 64));
+                                        Army newArmy = new Army(armyName);
+                                        newArmy.addPlayer(player.getUniqueId(),5);
+                                        BookTownControl.Armys.add(newArmy);
+                                        player.sendMessage("Армия "+armyName+" создана\n/army - меню армии");
+                                    }
+                                    else {
+                                        player.sendMessage(ChatColor.RED+ "Для создания армии вам нужно иметь 2 стака золотых слитков.");
+                                    }
                                 }
                                 // Разблокируем чат и удаляем слушателя чата
                                 chatListener.setChatEnabled(false);
@@ -632,13 +970,13 @@ public class InventoryManager implements Listener {
                             return;
                         }
                         else {
-                            player.sendMessage("Для создания армии вам нужно иметь 2 стака золотых слитков.");
+                            player.sendMessage(ChatColor.RED+"Для создания армии вам нужно иметь 2 стака золотых слитков.");
                             return;
                         }
                     }
                 }
-                else if (inventoryTitle.equalsIgnoreCase("Военные конфликты")) {
-                    if (displayName.equals("Пригласить в армию")) {
+                else if (inventoryTitle.contains("Моя армия")) {
+                    if (displayName.contains("Пригласить в армию")) {
                             // Регистрируем слушатель событий чата
                         player.closeInventory();
                         player.sendMessage("Введите ник игрока которого хотите пригласить\nCancel для отмены");
@@ -676,18 +1014,18 @@ public class InventoryManager implements Listener {
                             // Регистрируем слушатель событий чата
                             Bukkit.getPluginManager().registerEvents(chatListener, plugin);
                     }
-                    else if (displayName.equals("Список бойцов")) { //+
+                    else if (displayName.contains("Список бойцов")) { //+
                         showArmyMembersMenu(player);
                     }
-                    else if (displayName.equals("Распустить армию")) {//-
+                    else if (displayName.contains("Распустить армию")) {//-
                         player.closeInventory();
                         player.performCommand("army disband false");
                     }
-                    else if (displayName.equals("Присоединиться к стране")) {//-
+                    else if (displayName.contains("Присоединиться к стране")) {//-
                         player.performCommand("army connect");
                          //Connect to country
                     }
-                    else if (displayName.equals("Покинуть армию")) {//-
+                    else if (displayName.contains("Покинуть армию")) {//-
                         player.closeInventory();
                         player.performCommand("army leave false");
                     }
@@ -729,10 +1067,10 @@ public class InventoryManager implements Listener {
                     if (displayName.equals(ChatColor.YELLOW + "Выйти")) {
                         openInventoryArmyControl(player);
                     } else {
-                        Army army = BookTownControl.GetArmyPlayerIn(Bukkit.getPlayer(ChatColor.stripColor(displayName)));
+                        Army army = BookTownControl.GetArmyPlayerIn(Bukkit.getOfflinePlayer(ChatColor.stripColor(displayName)));
                         // Получаем выбранного игрока
                         if(army != null) {
-                            Army.ArmyPlayer selectedPlayer = army.getPlayer(Bukkit.getPlayer(ChatColor.stripColor(displayName)));
+                            Army.ArmyPlayer selectedPlayer = army.getPlayer(Bukkit.getOfflinePlayer(ChatColor.stripColor(displayName)));
 
                             if (selectedPlayer != null && army.getPlayer(player).getPriority() >= 4) {
                                 openPlayerControlMenu(player, selectedPlayer);
@@ -750,7 +1088,7 @@ public class InventoryManager implements Listener {
 
                     // Получаем выбранного игрока из названия предмета
                     String playerName = inventoryTitle.replace("Управление бойцом ", "");
-                    Player selectedPlayer = Bukkit.getPlayer(playerName);
+                    OfflinePlayer selectedPlayer = Bukkit.getOfflinePlayer(playerName);
 
                     if (selectedPlayer != null) {
                         if (displayName.equals(ChatColor.YELLOW + "Поставить на службу в город")) {
@@ -771,10 +1109,18 @@ public class InventoryManager implements Listener {
                         else if (displayName.equals(ChatColor.YELLOW + "Изменить приоритет")) {
                             // Действие для изменения приоритета игрока
                             changePlayerPriority(selectedPlayer,player,army);
-                        } else {
+                        }
+                        else if (displayName.equals(ChatColor.YELLOW + "Выйти")) {
+                            showArmyMembersMenu(player);
+                        }
+                        else {
                             player.sendMessage("Неверное действие");
                         }
-                    } else {
+                    }
+                    else if (displayName.equals(ChatColor.YELLOW + "Выйти")) {
+                        showArmyMembersMenu(player);
+                    }
+                    else {
                         player.sendMessage("Ошибка при выборе игрока");
                     }
                     return;
@@ -820,11 +1166,37 @@ public class InventoryManager implements Listener {
                         Town town = TownyUniverse.getInstance().getTown(itemName);
                         if (town != null) {
                             player.performCommand("army connect "+itemName);
+                            player.closeInventory();
                             // Действия с полученной страной
                             // ...
                         }
                         else {
                             player.performCommand("army connect");
+                        }
+                    }
+                }
+                else if (inventoryTitle.contains("Страны")) {
+                    ItemMeta itemMeta = clickedItem.getItemMeta();
+                    String itemName = ChatColor.stripColor(itemMeta.getDisplayName());
+
+                    if (itemName.equals("Выйти")) {
+                        openInventoryMAIN(player);
+                    } else {
+                        // Получить страну из TownyUniverse по названию предмета
+                        Town town = TownyUniverse.getInstance().getTown(ChatColor.stripColor(itemName));
+                        if (town != null) {
+                            if(town.isOpen()) {
+                                player.performCommand("town join "+ChatColor.stripColor(itemName));
+                            }
+                            else {
+                                player.performCommand("country playerjoin "+ChatColor.stripColor(itemName));
+                            }
+                            player.closeInventory();
+                            // Действия с полученной страной
+                            // ...
+                        }
+                        else {
+                            CountriesStatisticAndJoinMenu(player,1);
                         }
                     }
                 }
@@ -849,13 +1221,116 @@ public class InventoryManager implements Listener {
                     }
 
                 }
+                else if(inventoryTitle.contains("Список войн")) {
+                    if (displayName.equals(ChatColor.YELLOW + "◀️ Назад")) {
+                        // Нажата кнопка "Назад"
+                        int currentPage = Integer.parseInt(event.getView().getTitle().split(" ")[2].split("/")[0].replace("Страница ", ""));
+                        showGlobalWarsMenu(player, currentPage - 1);
+                    }
+                    else if (displayName.equals(ChatColor.YELLOW + "Вперед ▶️")) {
+                        // Нажата кнопка "Вперед"
+                        int currentPage = Integer.parseInt(event.getView().getTitle().split(" ")[2].split("/")[0].replace("Страница ", ""));
+                        showGlobalWarsMenu(player, currentPage + 1);
+                    }
+                    else if(displayName.equals(ChatColor.YELLOW + "Выйти")) {
+                        openInventoryMAIN(player);
+                    }
+                    else {
+                        String[] townNames = ChatColor.stripColor(displayName.replace("Война между ","")).split(" и ");
+                        String town1Name = townNames[0];
+                        String town2Name = townNames[1];
 
+                        List<War> wars = new ArrayList<>();
+                        for (War war : BookTownControl.Wars) {
+                            if (war.GetTownsByTwo(town1Name,town2Name)) {
+                                CountryInventoryManager.showLocalWarsMenu(player,war);
+                            }
+                        }
+                    }
+                    return;
+                }
+                else if (inventoryTitle.contains("Моя страна")) {
+                    Town town = TownyUniverse.getInstance().getResident(player.getUniqueId()).getTownOrNull();
+                    if(town == null) {
+                        CountriesStatisticAndJoinMenu(player,1);
+                    }
+                    if (displayName.contains("Пригласить в страну")) {
+                        // Регистрируем слушатель событий чата
+                        player.closeInventory();
+                        player.sendMessage("Введите ник игрока которого хотите пригласить\nCancel для отмены");
+                        ChatListener chatListener = new ChatListener(player);
+                        chatListener.setChatEnabled(true);
+                        CommandListener commandListener = new CommandListener(player);
+                        Bukkit.getPluginManager().registerEvents(commandListener, plugin);
+                        commandListener.setBlockCommands(true);
+                        commandListener.setOnCommandExecuted((command) -> {
+                            player.sendMessage(ChatColor.RED + "Вы не можете использовать команды во время этой операции.");
+                        });
+
+                        chatListener.setOnChatMessageReceived((message) -> {
+                            // Получаем ник игрока из сообщения
+                            String invitedPlayerName = message;
+
+                            // Выполняем команду "army add (ник игрока)"
+                            if (invitedPlayerName.equalsIgnoreCase("cancel") || invitedPlayerName.equalsIgnoreCase("c") || invitedPlayerName.equalsIgnoreCase("n") || invitedPlayerName.equalsIgnoreCase("no") || invitedPlayerName.equalsIgnoreCase("отмена") || invitedPlayerName.equalsIgnoreCase("н") || invitedPlayerName.equalsIgnoreCase("нет") || invitedPlayerName.equalsIgnoreCase("о")) {
+                                // Отмена
+                                player.sendMessage(ChatColor.RED + "Приглашение отменено.");
+                            }
+                            else {
+                                String command = "town invite " + invitedPlayerName;
+                                Bukkit.getScheduler().runTask(plugin, () -> {
+                                    player.performCommand(command);
+                                });
+                            }
+                            // Разблокируем чат и удаляем слушателя событий чата
+                            chatListener.setChatEnabled(false);
+                            HandlerList.unregisterAll(chatListener);
+                            commandListener.setBlockCommands(false);
+                            HandlerList.unregisterAll(commandListener);
+                        });
+
+                        // Регистрируем слушатель событий чата
+                        Bukkit.getPluginManager().registerEvents(chatListener, plugin);
+                    }
+                    else if (displayName.contains("Список участников")) {
+                        player.performCommand("town reslist");
+                        player.closeInventory();
+                    }
+                    else if (displayName.contains("Уничтожить страну")) {//-
+                        player.closeInventory();
+                        player.performCommand("country remove "+town.getName()+" false");
+                    }
+                    else if (displayName.contains("Начать войну")) {//-
+                        player.performCommand("country war");
+                        //Connect to country
+                    }
+                    else if (displayName.contains("Покинуть страну")) {//-
+                        player.closeInventory();
+                        player.performCommand("town leave");
+                    }
+                    else if(displayName.contains("Свободный вход")) {
+                        if(town.isOpen()) {
+                            player.performCommand("country open");
+                        }
+                        else {
+                            player.performCommand("town toggle open");
+                        }
+                        openInventoryCountryControl(player);
+                    }
+                    else if(displayName.contains("Рассмотреть контракты")) {
+                        player.performCommand("amendlaws "+town.getName()+" contractbook");
+                    }
+                    /*else if(displayName.contains("Отозвать армию из страны")) {
+                        showLocalCountriesMenu(player,1);
+                    }*/
+                    return;
+                }
              // Отменить перемещение предмета
         }
     }
 
 
-    public void changePlayerPriority(Player selectedPlayer,Player leadPlayer , Army army) {
+    public void changePlayerPriority(OfflinePlayer selectedPlayer,Player leadPlayer , Army army) {
         leadPlayer.closeInventory();
         leadPlayer.sendMessage("Введите ранк игрока от 1 до 5, если вы введёте 5, то ваш приоритет станет 4, и вы передадите лидерство\nОтмена для отмены");
 
@@ -901,7 +1376,7 @@ public class InventoryManager implements Listener {
                         Army.ArmyPlayer armyPlayer = army.getPlayer(selectedPlayer);
                         army.addPlayer(leadPlayer.getUniqueId(), 4);
                         army.addPlayer(selectedPlayer.getUniqueId(), 5);
-                        leadPlayer.sendMessage(ChatColor.GREEN + "Лидерство передано игроку " + selectedPlayer.getDisplayName());
+                        leadPlayer.sendMessage(ChatColor.GREEN + "Лидерство передано игроку " + selectedPlayer.getName());
                     } else {
                         leadPlayer.sendMessage(ChatColor.RED + "Неверный ранк. Ранк должен быть от 1 до 5.");
                     }

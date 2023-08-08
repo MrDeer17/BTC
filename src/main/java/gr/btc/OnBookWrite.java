@@ -10,6 +10,7 @@ import com.palmergames.bukkit.towny.exceptions.TownyException;
 import com.palmergames.bukkit.towny.object.*;
 import com.palmergames.bukkit.towny.regen.PlotBlockData;
 import com.palmergames.bukkit.towny.regen.TownyRegenAPI;
+import com.palmergames.bukkit.towny.tasks.TownClaim;
 import com.palmergames.bukkit.towny.utils.MapUtil;
 import com.palmergames.bukkit.util.BukkitTools;
 import net.md_5.bungee.api.ChatMessageType;
@@ -44,12 +45,23 @@ public class OnBookWrite implements Listener {
         ItemStack book = event.getPlayer().getInventory().getItemInMainHand();
 
             for (Town t : TownyUniverse.getInstance().getTowns()) {
-                if (Objects.equals(t.getMayor().getPlayer(), resik.getPlayer())) {
-                    if (book.getItemMeta().hasDisplayName() && book.getItemMeta().getDisplayName().equalsIgnoreCase(main.genGr("Книга создания страны","#FF0E6C","#C90AFF"))) {
-                    event.getPlayer().getInventory().setItemInMainHand(null);
-                    event.getPlayer().updateInventory();
-                    GiveItemToFounder(t.getMayor().getPlayer(), t, true);
-                    return; // Выходим из цикла после удаления книги
+                if (t.getResidents().contains(resik)) {
+                    if (Objects.equals(t.getMayor().getPlayer(), resik.getPlayer()) || BookTownControl.townAddition.get(t.getUUID()).retso().equals(player.getUniqueId())) {
+                        if (book.getItemMeta().hasDisplayName() && book.getItemMeta().getDisplayName().equalsIgnoreCase(main.genGr("Книга создания страны", "#FF0E6C", "#C90AFF"))) {
+                            Bukkit.getScheduler().runTaskLater(BookTownControl.getPlugin(BookTownControl.class), new Runnable() {
+                                public void run() {
+                                    event.getPlayer().getInventory().setItemInMainHand(null);
+                                    event.getPlayer().updateInventory();
+                                    GiveItemToFounder(t.getMayor().getPlayer(), t, true);
+                                }
+                            }, 1);
+
+                            return; // Выходим из цикла после удаления книги
+                        }
+                    }
+                    else {
+                        player.sendMessage("Вы уже в стране, но у вас недостаточно прав");
+                        event.setCancelled(true);
                     }
                 }
             }
@@ -194,11 +206,17 @@ public class OnBookWrite implements Listener {
             int randomX = new Random().nextInt(maxX - minX + 1) + minX;
             int randomY = new Random().nextInt(maxY - minY + 1) + minY;
 
-            String prompt = "X Y координаты\n\n Пример:\n " + randomX + " " + randomY + "\n Возьмётся чанк: " + randomX/8 + " " + randomY/8;
+            String prompt = "X Y координаты\n\nПример:\n " + randomX + " " + randomY + "\nВозьмётся чанк:\n " + randomX/8 + " " + randomY/8;
 
+            if (bMeta.getPageCount() < 4) {
+                int pagesToAdd = 4 - bMeta.getPageCount();
+                for (int i = 0; i < pagesToAdd; i++) {
+                    bMeta.addPage("");
+                }
+            }
             bMeta.setPage(1, prompt);
-            bMeta.setPage(2,"Ваш ник");
-            bMeta.setPage(3,"Ники жителей через 1 пробел");
+            bMeta.setPage(2,e.getWhoClicked().getName());
+            bMeta.setPage(3,"Ники жителей через пробел");
             bMeta.setPage(4,"Название вашей страны");
 
             bMeta.setLore(lore);
@@ -297,17 +315,21 @@ public class OnBookWrite implements Listener {
                 } //Получаем город
 
                 if(town.getMayor().getPlayer().equals(player)) { //Mayor
-                    bm.spigot().setPages(Lists(town,true));
+                    bm.spigot().setPages(Lists(town,2));
                     setBookLore(mainHandItem,town,true);
                 } //Если игрок основатель
+                else if(BookTownControl.townAddition.get(town.getUUID()).retso().equals(player.getUniqueId())) {
+                    bm.spigot().setPages(Lists(town,1));
+                    setBookLore(mainHandItem,town,true);
+                }
                 else {
-                    bm.spigot().setPages(Lists(town,false));//NoMayor
+                    bm.spigot().setPages(Lists(town,0));//NoMayor
                     setBookLore(mainHandItem,town,false);
                 } //Если игрок не основатель
             }
             else {
                 //No have town exception
-                bm.spigot().setPages(Lists(town,false));
+                bm.spigot().setPages(Lists(town,0));
                 setBookLore(mainHandItem,town,false);
             } //Если игрок ни в одном городе
             mainHandItem.setItemMeta(bm);
@@ -333,7 +355,7 @@ public class OnBookWrite implements Listener {
         }
         return onlineAdmins;
     }
-    BaseComponent[][] Lists(Town town, boolean isAdmin) {
+    BaseComponent[][] Lists(Town town, int isAdmin) {
         boolean exists = false;
         for(Town t : TownyUniverse.getInstance().getTowns()) {
             if(t.equals(town)) {
@@ -343,7 +365,7 @@ public class OnBookWrite implements Listener {
         }
 
         if (exists) {
-            if(isAdmin) {
+            if(isAdmin == 2) {
                 TownBlock tb = town.getHomeBlockOrNull();
                 List<BaseComponent[]> pages = new ArrayList<>();
 
@@ -369,6 +391,153 @@ public class OnBookWrite implements Listener {
                 populationInfo = new TextComponent("Численность армии: " + Warriors + " \\ " + decimalFormat.format(Math.ceil(town.getResidents().size() / 3.0)) + "\n");
                 page1.addExtra(populationInfo);
                 TextComponent leaderInfo = new TextComponent("Лидер: " + town.getMayor().getPlayer().getDisplayName());
+                page1.addExtra(leaderInfo);
+                if(BookTownControl.townAddition.get(town.getUUID()).retso() != null) {
+                    leaderInfo = new TextComponent("\nЗаместитель: " + BookTownControl.townAddition.get(town.getUUID()).retso());
+                }
+                else {
+                    leaderInfo = new TextComponent("\nУстановить заместителя");
+                    HoverEvent hoverEvent = new HoverEvent(HoverEvent.Action.SHOW_TEXT, new ComponentBuilder("/country coowner (ник)").create());
+                    leaderInfo.setHoverEvent(hoverEvent);
+                }
+                page1.addExtra(leaderInfo);
+                if(town.isOpen()) {
+                    leaderInfo = new TextComponent("\nВход открыт");
+                    HoverEvent hoverEvent = new HoverEvent(HoverEvent.Action.SHOW_TEXT, new ComponentBuilder("Нажмите для переключения").create());
+                    leaderInfo.setHoverEvent(hoverEvent);
+                    leaderInfo.setClickEvent(new ClickEvent(ClickEvent.Action.RUN_COMMAND, "/country open"));
+                }
+                else {
+                    leaderInfo = new TextComponent("\nВход закрыт");
+                    HoverEvent hoverEvent = new HoverEvent(HoverEvent.Action.SHOW_TEXT, new ComponentBuilder("Нажмите для переключения").create());
+                    leaderInfo.setHoverEvent(hoverEvent);
+                    leaderInfo.setClickEvent(new ClickEvent(ClickEvent.Action.RUN_COMMAND, "/town toggle open"));
+                }
+                page1.addExtra(leaderInfo);
+                pages.add(new BaseComponent[]{page1});
+
+                TextComponent page2 = new TextComponent("Горожане: \n");
+                int counter = 1;
+                boolean isOrigin = true;
+                for (Resident r : town.getResidents()) {
+                    if(!isOrigin) {
+                        page2.addExtra(", ");
+                    }
+                    else {
+                        isOrigin = false;
+                    }
+                    TextComponent playerName = new TextComponent("["+counter+"] ");
+                    if(r.getUUID() != null) {
+                        if (!(Bukkit.getOfflinePlayer(r.getUUID())).getName().equals(town.getMayor().getPlayer().getName())) {
+                            playerName.setHoverEvent(new HoverEvent(HoverEvent.Action.SHOW_TEXT, new ComponentBuilder(Bukkit.getOfflinePlayer(r.getUUID()).getName() + "\nУдалить игрока").color(ChatColor.RED.asBungee()).create()));
+                            playerName.setClickEvent(new ClickEvent(ClickEvent.Action.RUN_COMMAND, "/town kick " + Bukkit.getOfflinePlayer(r.getUUID()).getName()));
+                        } else {
+                            playerName.setHoverEvent(new HoverEvent(HoverEvent.Action.SHOW_TEXT, new ComponentBuilder(Objects.requireNonNull(r.getPlayer()).getName() + "\nЭто вы").color(ChatColor.GREEN.asBungee()).create()));
+                        }
+
+                        counter++;
+                        page2.addExtra(playerName);
+                    }
+                }
+
+                page2.addExtra(".");
+
+                TextComponent plusSign = new TextComponent("  [+]");
+                plusSign.setHoverEvent(new HoverEvent(HoverEvent.Action.SHOW_TEXT, new ComponentBuilder("Добавить нового игрока").color(ChatColor.DARK_GREEN.asBungee()).create()));
+                plusSign.setClickEvent(new ClickEvent(ClickEvent.Action.RUN_COMMAND, "/tinvite"));
+                page2.addExtra(plusSign);
+                pages.add(new BaseComponent[]{page2});
+                TextComponent line1 = new TextComponent(ChatColor.RED + "Уничтожить страну\n");
+                line1.setClickEvent(new ClickEvent(ClickEvent.Action.RUN_COMMAND, "/country remove " + town.getName()+" false"));
+
+                TextComponent line2 = new TextComponent();
+                TextComponent line7 = new TextComponent();
+                if (BookTownControl.townAddition.get(town.getUUID()).getTownItemMap() == null || BookTownControl.townAddition.get(town.getUUID()).getTownItemMap().isEmpty()) {
+                    line2.setText(ChatColor.RED + "Внести книгу \nзаконов из руки\n");
+                } else {
+                    line2.setText(ChatColor.GOLD + "Внести поправки\nв законы\n");
+                }
+                //main.genGr("Контракты","#cc4444","#ff0000")
+                line2.setClickEvent(new ClickEvent(ClickEvent.Action.RUN_COMMAND, "/amendlaws " + town.getName()));
+
+                TextComponent line4 = new TextComponent(ChatColor.DARK_GREEN + "Добавить чанк\n (SHIFT+ПКМ)\n");
+                line4.setClickEvent(new ClickEvent(ClickEvent.Action.RUN_COMMAND, "/town claim"));
+
+                TextComponent line5 = new TextComponent(ChatColor.RED + "Удалить чанк");
+                line5.setClickEvent(new ClickEvent(ClickEvent.Action.RUN_COMMAND, "/town unclaim"));
+
+                TextComponent line6 = new TextComponent();
+                if(!(BookTownControl.townAddition.get(town.getUUID()).isContractBook())) {
+                    line6 = new TextComponent(ChatColor.DARK_GREEN + "\nДобавить книгу контрактов\n");
+                    line6.setClickEvent(new ClickEvent(ClickEvent.Action.RUN_COMMAND, "/amendlaws "+town.getName()+" contractbook"));
+                }
+                else {
+                    line6 = new TextComponent(ChatColor.DARK_GREEN + "\nРассмотреть контракты\n");
+                    line6.setClickEvent(new ClickEvent(ClickEvent.Action.RUN_COMMAND, "/amendlaws "+town.getName()+" contractbook"));
+                }
+                if(BookTownControl.CheckForWar(town)) {
+                    line7 = new TextComponent(ChatColor.DARK_RED + "Информация о войне");
+                    line7.setClickEvent(new ClickEvent(ClickEvent.Action.RUN_COMMAND, "/country war"));
+                }
+                else {
+                    line7 = new TextComponent(ChatColor.DARK_RED + "Начать войну");
+                    HoverEvent hoverEvent = new HoverEvent(HoverEvent.Action.SHOW_TEXT, new ComponentBuilder("Вы перейдёте в меню для выбора страны\nС которой можете начать войну").create());
+                    line7.setHoverEvent(hoverEvent);
+                    line7.setClickEvent(new ClickEvent(ClickEvent.Action.RUN_COMMAND, "/country war"));
+                }
+                pages.add(new BaseComponent[]{line1, line2, line4, line5,line6,line7});
+                return pages.toArray(new BaseComponent[0][]);
+            }
+            else if(isAdmin == 1) {
+                TownBlock tb = town.getHomeBlockOrNull();
+                List<BaseComponent[]> pages = new ArrayList<>();
+
+                TextComponent page1 = new TextComponent("Страна: " + ChatColor.GOLD + town.getName() + ChatColor.RESET + "\n");
+                if (tb != null) {
+                    TextComponent chunkInfo = new TextComponent("Корневой чанк: " + tb.getCoord().getX() + "," + tb.getCoord().getZ() + "\n");
+                    page1.addExtra(chunkInfo);
+                }
+                TextComponent populationInfo = new TextComponent("Население: " + town.getResidents().size() + "\n");
+                page1.addExtra(populationInfo);
+                int Warriors = 0;
+                for(Army army : BookTownControl.Armys) {
+                    if(army.IsCountryConnected(town)) {
+                        for(Army.ArmyPlayer ap : army.getPlayers()) {
+                            if(Objects.equals(army.GetLink(ap), town.getUUID())) {
+                                Warriors++;
+                            }
+                        }
+
+                    }
+                }
+                DecimalFormat decimalFormat = new DecimalFormat("#");
+                populationInfo = new TextComponent("Численность армии:\n " + Warriors + " \\ " + decimalFormat.format(Math.ceil(town.getResidents().size() / 3.0)) + "\n");
+                page1.addExtra(populationInfo);
+                TextComponent leaderInfo = new TextComponent("Лидер: " + town.getMayor().getPlayer().getDisplayName());
+                page1.addExtra(leaderInfo);
+                if(BookTownControl.townAddition.get(town.getUUID()).retso() != null) {
+                    leaderInfo = new TextComponent("\nЗаместитель: " + BookTownControl.townAddition.get(town.getUUID()).retso());
+                    HoverEvent hoverEvent = new HoverEvent(HoverEvent.Action.SHOW_TEXT, new ComponentBuilder("/country coowner noone - чтобы удалить поста заместителя").create());
+                    leaderInfo.setHoverEvent(hoverEvent);
+                }
+                else {
+                    leaderInfo = new TextComponent("\n\nУстановить заместителя");
+                    HoverEvent hoverEvent = new HoverEvent(HoverEvent.Action.SHOW_TEXT, new ComponentBuilder("/country coowner (ник)").create());
+                    leaderInfo.setHoverEvent(hoverEvent);
+                }
+                page1.addExtra(leaderInfo);
+                if(town.isOpen()) {
+                    leaderInfo = new TextComponent("\nВход открыт");
+                    HoverEvent hoverEvent = new HoverEvent(HoverEvent.Action.SHOW_TEXT, new ComponentBuilder("Нажмите для переключения").create());
+                    leaderInfo.setHoverEvent(hoverEvent);
+                    leaderInfo.setClickEvent(new ClickEvent(ClickEvent.Action.RUN_COMMAND, "/country open"));
+                }
+                else {
+                    leaderInfo = new TextComponent("\nВход закрыт");
+                    HoverEvent hoverEvent = new HoverEvent(HoverEvent.Action.SHOW_TEXT, new ComponentBuilder("Нажмите для переключения").create());
+                    leaderInfo.setHoverEvent(hoverEvent);
+                    leaderInfo.setClickEvent(new ClickEvent(ClickEvent.Action.RUN_COMMAND, "/town toggle open"));
+                }
                 page1.addExtra(leaderInfo);
                 pages.add(new BaseComponent[]{page1});
 
@@ -402,9 +571,6 @@ public class OnBookWrite implements Listener {
                 plusSign.setClickEvent(new ClickEvent(ClickEvent.Action.RUN_COMMAND, "/tinvite"));
                 page2.addExtra(plusSign);
                 pages.add(new BaseComponent[]{page2});
-                TextComponent line1 = new TextComponent(ChatColor.RED + "Уничтожить страну\n");
-                line1.setClickEvent(new ClickEvent(ClickEvent.Action.RUN_COMMAND, "/country remove " + town.getName()+" false"));
-
                 TextComponent line2 = new TextComponent();
                 if (BookTownControl.townAddition.get(town.getUUID()).getTownItemMap() == null || BookTownControl.townAddition.get(town.getUUID()).getTownItemMap().isEmpty()) {
                     line2.setText(ChatColor.RED + "Внести книгу \nзаконов из руки\n");
@@ -429,7 +595,7 @@ public class OnBookWrite implements Listener {
                     line6 = new TextComponent(ChatColor.DARK_GREEN + "\nРассмотреть контракты\n");
                     line6.setClickEvent(new ClickEvent(ClickEvent.Action.RUN_COMMAND, "/amendlaws "+town.getName()+" contractbook"));
                 }
-                pages.add(new BaseComponent[]{line1, new TextComponent("\n"), line2, new TextComponent("\n"), line4, new TextComponent("\n"), line5,line6});
+                pages.add(new BaseComponent[]{line2, new TextComponent("\n"), line4, new TextComponent("\n"), line5,line6});
                 return pages.toArray(new BaseComponent[0][]);
             }
             else {
@@ -499,7 +665,7 @@ public class OnBookWrite implements Listener {
         bookMeta.setTitle("You can't see this");
         bookMeta.setAuthor(founder.getName());
         bookMeta.setDisplayName(main.genGr("Книга страны ","#4AFBFB","#2270F0")+main.genGr(town.getName(),"#BC0000","#FB7000") );
-        bookMeta.spigot().setPages(Lists(town,true));
+        bookMeta.spigot().setPages(Lists(town,2));
         signedBook.setItemMeta(bookMeta);
         setBookLore(signedBook,town,true); // LORE
         if(!comeback){
@@ -604,6 +770,19 @@ public class OnBookWrite implements Listener {
                 Towny.getPlugin().updateCache(townBlock.getWorldCoord());
                 BukkitTools.fireEvent(new NewTownEvent(town));
                 BookTownControl.townAddition.get(town.getUUID()).addChunckPriorityMap(new ChunkCoord(key.getX(),key.getZ(),world.getBukkitWorld().getName()),1);
+                int playerChunkX = player.getLocation().getBlockX() >> 4;
+                int playerChunkZ = player.getLocation().getBlockZ() >> 4;
+                List<WorldCoord> townBlocks = new ArrayList<>();
+                for (int xOffset = -1; xOffset <= 1; xOffset++) {
+                    for (int zOffset = -1; zOffset <= 1; zOffset++) {
+                        int chunkX = playerChunkX + xOffset;
+                        int chunkZ = playerChunkZ + zOffset;
+                        WorldCoord townBlock2 = new WorldCoord("nether",chunkX, chunkZ);
+                        townBlocks.add(townBlock2);
+                    }
+                }
+// Запускаем асинхронную задачу TownClaim для заприватки чанков
+                Towny.getPlugin().getScheduler().runAsync(new TownClaim(Towny.getPlugin(), player, town, townBlocks, false, true, false));
                 return town;
             }
         }
@@ -627,10 +806,12 @@ public class OnBookWrite implements Listener {
         }
         if(isMayor) {
             List<String> lore = new ArrayList<>();
-            lore.add(ChatColor.WHITE+"Чтобы отобразить актуальную информацию либо перемести книгу во вторую руку, либо открой её");
+            lore.add(ChatColor.GRAY+"Чтобы отобразить актуальную информацию");
+            lore.add(ChatColor.GRAY+"Перемести книгу во вторую руку (F), либо открой её");
+            lore.add(ChatColor.GRAY+"");
             lore.add(ChatColor.WHITE+"Нераспределено: "+(BookTownControl.GetRemainsDefaultChunks(town)+BookTownControl.GetRemainsBasedChunks(town))+" чанков");
-            lore.add(ChatColor.WHITE+"Из них "+BookTownControl.GetRemainsDefaultChunks(town)+" базовых");
-            lore.add(ChatColor.WHITE+"И "+BookTownControl.GetRemainsBasedChunks(town)+" обычных");
+            lore.add(ChatColor.GREEN+"Из них "+BookTownControl.GetRemainsDefaultChunks(town)+" базовых");
+            lore.add(ChatColor.YELLOW+"И "+BookTownControl.GetRemainsBasedChunks(town)+" обычных");
             ItemMeta bookMeta = book.getItemMeta();
             bookMeta.setLore(lore);
             book.setItemMeta(bookMeta);
