@@ -170,5 +170,6 @@ public class War implements Serializable {
                 }
             }
         }
+        return null;
     }
 }

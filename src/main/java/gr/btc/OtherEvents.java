@@ -7,10 +7,7 @@ import com.palmergames.bukkit.towny.event.PlayerLeaveTownEvent;
 import com.palmergames.bukkit.towny.event.TownClaimEvent;
 import com.palmergames.bukkit.towny.event.player.PlayerEntersIntoTownBorderEvent;
 import com.palmergames.bukkit.towny.exceptions.TownyException;
-import com.palmergames.bukkit.towny.object.PlotGroup;
-import com.palmergames.bukkit.towny.object.Town;
-import com.palmergames.bukkit.towny.object.TownBlock;
-import com.palmergames.bukkit.towny.object.WorldCoord;
+import com.palmergames.bukkit.towny.object.*;
 import com.palmergames.bukkit.towny.tasks.TownClaim;
 import net.md_5.bungee.api.ChatMessageType;
 import net.md_5.bungee.api.chat.ClickEvent;
@@ -40,11 +37,24 @@ public class OtherEvents implements Listener {
         Player player = event.getEntity();
 
         if (BookTownControl.IsPlayerInWar(player) != null) {
+            War war = BookTownControl.CheckForWarInTown(BookTownControl.IsPlayerInWar(player));
+
             ItemStack head = new ItemStack(Material.PLAYER_HEAD);
             SkullMeta meta = (SkullMeta) head.getItemMeta();
             meta.setOwner(player.getName());
             List<String> lore = new ArrayList<>();
-            lore.add(ChatColor.GREEN + "ПКМ на чанк " + ChatColor.YELLOW + TownyUniverse.getInstance().getResident(player.getUniqueId()).getTownOrNull().getName() + ChatColor.GREEN + " чтобы захватить");
+            String lose = "";
+            String win = "";
+            if(war.side1Warriors.contains(player)) {
+                lose = TownyUniverse.getInstance().getTown(war.sides1.get(0)).getName();
+                win = TownyUniverse.getInstance().getTown(war.sides2.get(0)).getName();
+            }
+            else if(war.side2Warriors.contains(player)) {
+                lose = TownyUniverse.getInstance().getTown(war.sides2.get(0)).getName();
+                win = TownyUniverse.getInstance().getTown(war.sides1.get(0)).getName();
+            }
+
+            lore.add(ChatColor.GREEN + "ПКМ на чанк " + ChatColor.YELLOW + lose + ChatColor.GREEN + " чтобы захватить");
             lore.add(ChatColor.GREEN + "или на чанк своей страны чтобы отбить чанк обратно");
             lore.add("");
 
@@ -55,10 +65,11 @@ public class OtherEvents implements Listener {
             String monthYearString = monthYearFormat.format(expirationDate);
 
             expirationDateString = monthYearString + " " + expirationDateString;
-            lore.add(ChatColor.YELLOW + "Годен до: " + expirationDateString);
+            lore.add(ChatColor.GRAY + "Годен до: " + expirationDateString);
+            lore.add(ChatColor.GRAY + "Только страна " +win+" получит новый чанк");
             meta.setLore(lore);
             head.setItemMeta(meta);
-
+//BookTownControl.
             player.getWorld().dropItem(player.getLocation(), head);
         }
     }
@@ -72,7 +83,14 @@ public class OtherEvents implements Listener {
             SkullMeta meta = (SkullMeta) item.getItemMeta();
                 List<String> lore = meta.getLore();
 
-                if (lore != null && lore.size() >= 4) {
+                if (lore != null && lore.size() >= 5) {
+                    event.setCancelled(true);
+                    String descriptionLine = ChatColor.stripColor(lore.get(0)); // Удаляем форматирование из первой строки описания
+                    String cityName = descriptionLine.replace("ПКМ на чанк ","").replace(" чтобы захватить","");
+                    Town LoseTown = TownyUniverse.getInstance().getTown(cityName);
+                    descriptionLine = ChatColor.stripColor(lore.get(4)); // Удаляем форматирование из первой строки описания
+                    cityName = descriptionLine.replace("Только страна ","").replace(" получит новый чанк","");
+                    Town WinTown = TownyUniverse.getInstance().getTown(cityName);
                     String expirationDateString = lore.get(3).substring(11);
                     SimpleDateFormat dateFormat = new SimpleDateFormat("yyyy.MM dd.MM.yyyy HH:mm");
 
@@ -81,9 +99,19 @@ public class OtherEvents implements Listener {
 
                         if (expirationDate.before(new Date())) {
                             player.sendMessage(ChatColor.RED + "Срок годности предмета истек!");
-                            event.setCancelled(true);
+
                             item.setAmount(0);
                             return;
+                        }
+                        else {
+                            WorldCoord tb = new WorldCoord(event.getClickedBlock().getWorld(),event.getClickedBlock().getX(),event.getClickedBlock().getZ());
+                            if(tb.getTownOrNull() != null && tb.getTownOrNull().equals(LoseTown)) {
+                                TownBlock townBlock = tb.getTownBlockOrNull();
+                                townBlock.setTown(WinTown);
+                            }
+                            else {
+                                player.sendMessage(ChatColor.RED +"Неверно выбранный чанк");
+                            }
                         }
                     } catch (ParseException e) {
                         e.printStackTrace();
