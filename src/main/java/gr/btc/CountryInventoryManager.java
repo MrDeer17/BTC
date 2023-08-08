@@ -188,8 +188,8 @@ public class CountryInventoryManager implements Listener {
 
         // Создание инвентаря для меню стран
         Inventory inventory = Bukkit.createInventory(holder, 36, ChatColor.RED + TownyUniverse.getInstance().getTown(war.sides1.get(0)).getName() + " и " + TownyUniverse.getInstance().getTown(war.sides2.get(0)).getName());
-        boolean guest = war.side1Warriors.contains(player) || war.side2Warriors.contains(player);
-
+        boolean guest = TownyUniverse.getInstance().getTown(war.sides1.get(0)).getMayor().getUUID().equals(player.getUniqueId()) || TownyUniverse.getInstance().getTown(war.sides2.get(0)).getMayor().getUUID().equals(player.getUniqueId());
+        guest = !guest;
         if (!guest) {
             ItemStack item = new ItemStack(Material.PAPER);
             ItemMeta meta = item.getItemMeta();

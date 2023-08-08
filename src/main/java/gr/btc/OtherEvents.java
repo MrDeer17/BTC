@@ -1,25 +1,22 @@
 package gr.btc;
 
-import com.palmergames.bukkit.towny.Towny;
 import com.palmergames.bukkit.towny.TownyUniverse;
 import com.palmergames.bukkit.towny.event.PlayerChangePlotEvent;
-import com.palmergames.bukkit.towny.event.PlayerLeaveTownEvent;
 import com.palmergames.bukkit.towny.event.TownClaimEvent;
-import com.palmergames.bukkit.towny.event.player.PlayerEntersIntoTownBorderEvent;
+import com.palmergames.bukkit.towny.exceptions.NotRegisteredException;
 import com.palmergames.bukkit.towny.exceptions.TownyException;
 import com.palmergames.bukkit.towny.object.*;
-import com.palmergames.bukkit.towny.tasks.TownClaim;
 import net.md_5.bungee.api.ChatMessageType;
 import net.md_5.bungee.api.chat.ClickEvent;
 import net.md_5.bungee.api.chat.TextComponent;
 import org.bukkit.*;
-import org.bukkit.block.BlockFace;
+import org.bukkit.block.Block;
 import org.bukkit.entity.Player;
 import org.bukkit.event.EventHandler;
 import org.bukkit.event.Listener;
+import org.bukkit.event.block.Action;
+import org.bukkit.event.block.BlockPlaceEvent;
 import org.bukkit.event.entity.PlayerDeathEvent;
-import org.bukkit.event.player.PlayerDropItemEvent;
-import org.bukkit.event.player.PlayerInteractEvent;
 import org.bukkit.event.player.PlayerSwapHandItemsEvent;
 import org.bukkit.inventory.ItemStack;
 import org.bukkit.inventory.meta.BookMeta;
@@ -58,13 +55,9 @@ public class OtherEvents implements Listener {
             lore.add(ChatColor.GREEN + "или на чанк своей страны чтобы отбить чанк обратно");
             lore.add("");
 
-            SimpleDateFormat dateFormat = new SimpleDateFormat("dd.MM.yyyy HH:mm");
+            SimpleDateFormat dateFormat = new SimpleDateFormat("yyyy MM dd HH:mm");
             Date expirationDate = new Date(System.currentTimeMillis() + 12 * 60 * 60 * 1000); // Текущее время + 12 часов
             String expirationDateString = dateFormat.format(expirationDate);
-            SimpleDateFormat monthYearFormat = new SimpleDateFormat("yyyy.MM");
-            String monthYearString = monthYearFormat.format(expirationDate);
-
-            expirationDateString = monthYearString + " " + expirationDateString;
             lore.add(ChatColor.GRAY + "Годен до: " + expirationDateString);
             lore.add(ChatColor.GRAY + "Только страна " +win+" получит новый чанк");
             meta.setLore(lore);
@@ -75,9 +68,25 @@ public class OtherEvents implements Listener {
     }
 
     @EventHandler
-    public void onPlayerInteract(PlayerInteractEvent event) {
+    public void onBlockPlace(BlockPlaceEvent event)  {
         Player player = event.getPlayer();
-        ItemStack item = event.getItem();
+        ItemStack item = event.getItemInHand();
+        Coord key = null;
+            Block clickedBlock = event.getBlockPlaced();
+            if (clickedBlock != null) {
+                World world = player.getWorld();
+                int x = clickedBlock.getX();
+                int z = clickedBlock.getZ();
+
+                key = Coord.parseCoord(x,z);
+                // Ваш код для работы с объектом WorldCoord
+            }
+        else {
+            return;
+        }
+        System.out.println(key);
+        System.out.println(new TownyWorld(player.getWorld().getName()));
+
 
         if (item != null && item.getType() == Material.PLAYER_HEAD && item.hasItemMeta() && item.getItemMeta() instanceof SkullMeta) {
             SkullMeta meta = (SkullMeta) item.getItemMeta();
@@ -85,6 +94,12 @@ public class OtherEvents implements Listener {
 
                 if (lore != null && lore.size() >= 5) {
                     event.setCancelled(true);
+                    TownBlock townBlock = null;
+                    try {
+                        townBlock = TownyUniverse.getInstance().getTownBlock(new WorldCoord(new TownyWorld(player.getWorld().getName()).getName(),key.getX(),key.getZ()));
+                    } catch (NotRegisteredException e) {
+                        player.sendMessage(ChatColor.RED +"Неверно выбранный чанк");
+                    }
                     String descriptionLine = ChatColor.stripColor(lore.get(0)); // Удаляем форматирование из первой строки описания
                     String cityName = descriptionLine.replace("ПКМ на чанк ","").replace(" чтобы захватить","");
                     Town LoseTown = TownyUniverse.getInstance().getTown(cityName);
@@ -92,7 +107,7 @@ public class OtherEvents implements Listener {
                     cityName = descriptionLine.replace("Только страна ","").replace(" получит новый чанк","");
                     Town WinTown = TownyUniverse.getInstance().getTown(cityName);
                     String expirationDateString = lore.get(3).substring(11);
-                    SimpleDateFormat dateFormat = new SimpleDateFormat("yyyy.MM dd.MM.yyyy HH:mm");
+                    SimpleDateFormat dateFormat = new SimpleDateFormat("yyyy MM dd HH:mm");
 
                     try {
                         Date expirationDate = dateFormat.parse(expirationDateString);
@@ -104,10 +119,14 @@ public class OtherEvents implements Listener {
                             return;
                         }
                         else {
-                            WorldCoord tb = new WorldCoord(event.getClickedBlock().getWorld(),event.getClickedBlock().getX(),event.getClickedBlock().getZ());
-                            if(tb.getTownOrNull() != null && tb.getTownOrNull().equals(LoseTown)) {
-                                TownBlock townBlock = tb.getTownBlockOrNull();
+
+                            if (townBlock.getTownOrNull() != null
+                                    && townBlock.getTownOrNull().equals(LoseTown)
+                                    && (BookTownControl.townAddition.get(LoseTown.getUUID()).getChunckPriorityMap().get(new ChunkCoord(townBlock.getWorldCoord().getX(),townBlock.getWorldCoord().getZ(),townBlock.getWorldCoord().getWorldName())) == null
+                                    || BookTownControl.townAddition.get(LoseTown.getUUID()).getChunckPriorityMap().get(new ChunkCoord(townBlock.getWorldCoord().getX(),townBlock.getWorldCoord().getZ(),townBlock.getWorldCoord().getWorldName())) <= 0))
+                            {
                                 townBlock.setTown(WinTown);
+                                player.sendMessage(ChatColor.DARK_RED +"Чанк захвачен");
                             }
                             else {
                                 player.sendMessage(ChatColor.RED +"Неверно выбранный чанк");

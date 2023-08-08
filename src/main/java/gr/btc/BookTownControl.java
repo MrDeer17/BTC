@@ -50,7 +50,7 @@ public final class BookTownControl extends JavaPlugin {
                 // Например, вызов метода TryToEndWar()
                 TryToEndAllWars();
             }
-        }, 0, 20); // 10*60*20
+        }, 0, 10*60*20); // 10*60*20
     }
 
     @Override
@@ -155,7 +155,7 @@ public final class BookTownControl extends JavaPlugin {
             e.printStackTrace();
         }
     }
-    public static int GetAllDefaultChunks(Town town) {
+    public static int GetAllBasedChunks(Town town) {
         ChunkCoord wc;
         int result = 0;
         TownAddition ta = townAddition.get(town.getUUID());
@@ -168,7 +168,7 @@ public final class BookTownControl extends JavaPlugin {
         return result;
 
     }
-    public static int GetAllBasedChunks(Town town) {
+    public static int GetAllDefaultChunks(Town town) {
         ChunkCoord wc;
         int result = 0;
         TownAddition ta = townAddition.get(town.getUUID());
@@ -270,7 +270,6 @@ public final class BookTownControl extends JavaPlugin {
         return null;
     }
     public static Town IsPlayerInWar(Player player) {
-        List<Town> towns = new ArrayList<>();
         for (War war : BookTownControl.Wars) {
             if(war.side1Warriors.contains(player) || war.side2Warriors.contains(player)) {
                 return war.ReturnTownByPlayer(player);

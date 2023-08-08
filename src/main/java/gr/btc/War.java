@@ -161,11 +161,11 @@ public class War implements Serializable {
         Warriors.addAll(this.side2Warriors);
         for(OfflinePlayer p : Warriors) {
             if(p.getUniqueId().equals(player.getUniqueId())) {
-                if(side1Warriors.contains(p.getUniqueId())) {
+                if(side1Warriors.contains(p)) {
 
                     return TownyUniverse.getInstance().getTown(sides1.get(0));
                 }
-                if(side2Warriors.contains(p.getUniqueId())) {
+                if(side2Warriors.contains(p)) {
                     return TownyUniverse.getInstance().getTown(sides2.get(0));
                 }
             }
