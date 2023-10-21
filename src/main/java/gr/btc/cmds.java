@@ -1,16 +1,10 @@
 package gr.btc;
-
-import com.palmergames.adventure.platform.facet.Facet;
 import com.palmergames.bukkit.towny.*;
-import com.palmergames.bukkit.towny.confirmations.Confirmation;
 import com.palmergames.bukkit.towny.exceptions.TownyException;
 import com.palmergames.bukkit.towny.object.Resident;
 import com.palmergames.bukkit.towny.object.Town;
-import com.palmergames.bukkit.towny.object.Translatable;
 import com.palmergames.bukkit.towny.object.WorldCoord;
 import com.palmergames.bukkit.towny.permissions.PermissionNodes;
-import com.palmergames.bukkit.towny.tasks.CooldownTimerTask;
-import com.palmergames.util.StringMgmt;
 import net.md_5.bungee.api.ChatMessageType;
 import net.md_5.bungee.api.chat.*;
 import org.bukkit.*;
@@ -18,17 +12,13 @@ import org.bukkit.command.Command;
 import org.bukkit.command.CommandExecutor;
 import org.bukkit.command.CommandSender;
 import org.bukkit.entity.Player;
-import org.bukkit.event.EventHandler;
 import org.bukkit.event.HandlerList;
-import org.bukkit.event.Listener;
-import org.bukkit.event.player.AsyncPlayerChatEvent;
 import org.bukkit.inventory.ItemStack;
 import org.bukkit.inventory.meta.BookMeta;
-import org.bukkit.inventory.meta.ItemMeta;
-import org.yaml.snakeyaml.util.ArrayUtils;
 
 import java.util.*;
-import java.util.function.Consumer;
+import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.TimeoutException;
 
 public class cmds implements CommandExecutor {
     private HashMap<UUID, Long> commandCooldowns = new HashMap<>();
@@ -66,7 +56,7 @@ public class cmds implements CommandExecutor {
                 }
                 else if (args[0].equalsIgnoreCase("war")) {
                     for (Town t : TownyAPI.getInstance().getTowns()) {
-                        if (t.getMayor().getPlayer().equals(player)) {
+                        if (t.getMayor().getPlayer() == player) {
                             town = t;
                             break;
                         }
@@ -90,7 +80,7 @@ public class cmds implements CommandExecutor {
                         }
                     }
                     if(!isstate) {
-                        player.spigot().sendMessage(ChatMessageType.ACTION_BAR,new TextComponent(ChatColor.RED+"Такой страны не существует"));
+                        Objects.requireNonNull(player).spigot().sendMessage(ChatMessageType.ACTION_BAR,new TextComponent(ChatColor.RED+"Такой страны не существует"));
                         return true;
                     }
                     else {
@@ -100,7 +90,7 @@ public class cmds implements CommandExecutor {
                 }
                 else if(args[0].equalsIgnoreCase("unconnect")) {
                     for (Town t : TownyAPI.getInstance().getTowns()) {
-                        if (t.getMayor().getPlayer().equals(player)) {
+                        if (t.getMayor().getPlayer() == player) {
                             town = t;
                             break;
                         }
@@ -109,49 +99,44 @@ public class cmds implements CommandExecutor {
                         Army army = BookTownControl.getArmyByName(args[1]);
                         if(army != null) {
                             army.UnConnectCountry(town);
-                            player.sendMessage("Армия "+args[1]+" теперь не защищает интересы страны "+town.getName());
+                            Objects.requireNonNull(player).sendMessage("Армия "+args[1]+" теперь не защищает интересы страны "+town.getName());
                             player.closeInventory();
                         }
                         else {
-                            player.sendMessage("Армия не найдена");
+                            Objects.requireNonNull(player).sendMessage("Армия не найдена");
                         }
                     }
 
                     else {
-                        player.sendMessage("Используйте управление из книги");
+                        Objects.requireNonNull(player).sendMessage("Используйте управление из книги");
                     }
                 }
                 else if(args[0].equalsIgnoreCase("join")) {
                     for (Town t : TownyAPI.getInstance().getTowns()) {
-                        if (t.getMayor().getPlayer().equals(player)) {
+                        if (t.getMayor().getPlayer() == player) {
                             town = t;
                             break;
                         }
                     }
                     Army army = BookTownControl.getArmyByName(args[1]);
                     if (town != null && army != null) {
-                        if(BookTownControl.townAddition.get(town.getUUID()).isContractBook()) {
                             BookTownControl.townAddition.get(town.getUUID()).inviteArmy(army);
                             Resident mayor = town.getMayor();
                             TextComponent acceptButton = new TextComponent(net.md_5.bungee.api.ChatColor.GREEN+"[Принять]");
                             acceptButton.setClickEvent(new ClickEvent(ClickEvent.Action.RUN_COMMAND, "/country connect "+army.getName()+" "+town.getName()));
 
                             // Отправить сообщение мэру с кнопкой "Принять"
-                            mayor.getPlayer().sendMessage("Вы хотите, чтобы ваша армия присоединилась к стране " + town.getName());
+                            Objects.requireNonNull(mayor.getPlayer()).sendMessage("Вы хотите, чтобы ваша армия присоединилась к стране " + town.getName());
                             mayor.getPlayer().spigot().sendMessage(acceptButton);
-                            player.sendMessage("Предложение о присоединении армии отправлено командиру армии " + args[1]);
-                        }
-                        else {
-                            player.sendMessage("Страна ещё не может подписывать контракты");
-                        }
+                            Objects.requireNonNull(player).sendMessage("Предложение о присоединении армии отправлено командиру армии " + args[1]);
                     } else {
-                        player.sendMessage("Армия не найдена");
+                        Objects.requireNonNull(player).sendMessage("Армия не найдена");
                     }
                 }
                 else if(args[0].equalsIgnoreCase("coowner")) {
 
                     for (Town t : TownyAPI.getInstance().getTowns()) {
-                        if (t.getMayor().getPlayer().equals(player)) {
+                        if (t.getMayor().getPlayer() == player) {
                             town = t;
                             break;
                         }
@@ -159,14 +144,14 @@ public class cmds implements CommandExecutor {
                     if(town != null) {
                         if(args[1].equalsIgnoreCase("noone")) {
                             BookTownControl.townAddition.get(town.getUUID()).setco(null);
-                            player.sendMessage("Теперь никто не совладелец страны");
+                            Objects.requireNonNull(player).sendMessage("Теперь никто не совладелец страны");
                             return true;
                         }
-                        BookTownControl.townAddition.get(town.getUUID()).setco(Bukkit.getPlayer(args[1]).getUniqueId());
-                        player.sendMessage("Теперь "+args[1]+" совладелец страны");
+                        BookTownControl.townAddition.get(town.getUUID()).setco(Objects.requireNonNull(Bukkit.getPlayer(args[1])).getUniqueId());
+                        Objects.requireNonNull(player).sendMessage("Теперь "+args[1]+" совладелец страны");
                     }
                     else {
-                        player.sendMessage("Проблема с получением страны");
+                        Objects.requireNonNull(player).sendMessage("Проблема с получением страны");
                     }
                 }
                 else if(args[0].equalsIgnoreCase("playerjoin")) {
@@ -174,23 +159,23 @@ public class cmds implements CommandExecutor {
                     if(town != null) {
                         if(town.getMayor().isOnline()) {
                             TextComponent acceptButton = new TextComponent(net.md_5.bungee.api.ChatColor.GREEN + "[Принять]");
-                            acceptButton.setClickEvent(new ClickEvent(ClickEvent.Action.RUN_COMMAND, "/town invite " + player.getName()));
-                            town.getMayor().getPlayer().sendMessage("Вы хотите, чтобы игрок " + player.getName() + " был в вашей стране");
+                            acceptButton.setClickEvent(new ClickEvent(ClickEvent.Action.RUN_COMMAND, "/town invite " + Objects.requireNonNull(player).getName()));
+                            Objects.requireNonNull(town.getMayor().getPlayer()).sendMessage("Вы хотите, чтобы игрок " + player.getName() + " был в вашей стране");
                             town.getMayor().getPlayer().spigot().sendMessage(acceptButton);
                             player.sendMessage("Запрос на вступление в город отправлен");
                         }
                         else {
-                            player.sendMessage("Мэр сейчас не в сети");
+                            Objects.requireNonNull(player).sendMessage("Мэр сейчас не в сети");
                         }
                     }
                     else {
-                        player.sendMessage("Проблема с получением города");
+                        Objects.requireNonNull(player).sendMessage("Проблема с получением города");
                     }
                 }
                 else if (args[0].equalsIgnoreCase("war")) {
 
                     for (Town t : TownyAPI.getInstance().getTowns()) {
-                        if (t.getMayor().getUUID().equals(player.getUniqueId())) {
+                        if (t.getMayor().getUUID().equals(Objects.requireNonNull(player).getUniqueId())) {
                             town = t;
                             break;
                         }
@@ -203,7 +188,7 @@ public class cmds implements CommandExecutor {
                         if (town != null && town2 != null) {
                             War war = BookTownControl.FireNewWar(town, town2);
                         } else {
-                            player.sendMessage("Неверная страна");
+                            Objects.requireNonNull(player).sendMessage("Неверная страна");
                         }
                     }
                 }
@@ -211,7 +196,7 @@ public class cmds implements CommandExecutor {
             else if (args.length == 3) {
                 if(args[2].equals("true")) {
                     boolean isdeleted = false;
-                    UUID townU = TownyUniverse.getInstance().getTown(args[1]).getUUID();
+                    UUID townU = Objects.requireNonNull(TownyUniverse.getInstance().getTown(args[1])).getUUID();
                     try {
                         isdeleted = townDelete(player, args[1]);
                     } catch (TownyException e) {
@@ -328,7 +313,6 @@ public class cmds implements CommandExecutor {
                     if(town.equals(new Town(""))) {
                         return false;
                     }
-                    if (BookTownControl.townAddition.get(town.getUUID()).isContractBook()) {
                         ItemStack book = new ItemStack(Material.WRITTEN_BOOK);
                         BookMeta bookMeta = (BookMeta) book.getItemMeta();
 
@@ -433,21 +417,6 @@ public class cmds implements CommandExecutor {
                         bookMeta.spigot().setPage(lastPageIndex, lastPage);
                         book.setItemMeta(bookMeta);
                         player.openBook(book);
-                    }
-                    else {
-                        ItemStack offHandItem = player.getInventory().getItemInOffHand();
-                        if (offHandItem != null && (offHandItem.getType().equals(Material.WRITTEN_BOOK) || offHandItem.getType().equals(Material.WRITABLE_BOOK))) {
-                            ItemMeta bookMeta = offHandItem.getItemMeta();
-                            if (bookMeta.hasDisplayName() && ChatColor.stripColor(bookMeta.getDisplayName()).contains("Контракты")) {
-                                player.getInventory().setItemInOffHand(null);
-                                player.sendMessage(ChatColor.GREEN + "Теперь страна может заключать контракты с армиями");
-                                BookTownControl.townAddition.get(town.getUUID()).setContractBook(true);
-                                return true;
-                            }
-                        }
-                        player.sendMessage(ChatColor.RED + "Книга \"Контракты\" не найдена");
-                        return false;
-                    }
                 }
             }
 
@@ -481,54 +450,50 @@ public class cmds implements CommandExecutor {
         }
         else if (command.getName().equalsIgnoreCase("tinvite")) {
             Player player = (Player) sender;
-            ChatListener chatListener = new ChatListener(player);
 
-            // Блокировка чата
+            CompletableFuture<Void> waitForResponse = new CompletableFuture<>();
+            ChatListener chatListener = new ChatListener(player, waitForResponse);
+
+            // Отправляем сообщение и ожидаем ответа
             player.sendMessage(ChatColor.RED + "Введите ник игрока для приглашения:");
 
-            // Регистрация слушателя чата
-            Bukkit.getPluginManager().registerEvents(chatListener, BookTownControl.getPlugin(BookTownControl.class));
-
-            // Отправка сообщения о возможности отмены
-            player.sendMessage(ChatColor.RED + "Введите 'cancel' для отмены.");
-
-            CommandListener commandListener = new CommandListener(player);
-            Bukkit.getPluginManager().registerEvents(commandListener, BookTownControl.getPlugin(BookTownControl.class));
-            commandListener.setBlockCommands(true);
-            commandListener.setOnCommandExecuted((commandss) -> {
-                player.sendMessage(ChatColor.RED + "Вы не можете использовать команды во время этой операции.");
-            });
-            // Ожидание ввода ника игрока
-            chatListener.setChatEnabled(true);
-
-            // Обработка введенного сообщения
-            chatListener.setOnChatMessageReceived((message) -> {
-                if (message.equalsIgnoreCase("cancel") || message.equalsIgnoreCase("c") || message.equalsIgnoreCase("n") || message.equalsIgnoreCase("no") || message.equalsIgnoreCase("отмена") || message.equalsIgnoreCase("н") || message.equalsIgnoreCase("нет") || message.equalsIgnoreCase("о")) {
-                    // Отмена
-                    //
-                    player.sendMessage(ChatColor.RED + "Приглашение отменено.");
-                    // Разблокировка чата
-                    chatListener.setChatEnabled(false);
-                    HandlerList.unregisterAll(chatListener);
+            Bukkit.getScheduler().runTaskLater(BookTownControl.getPlugin(BookTownControl.class), () -> {
+                if (!waitForResponse.isDone()) {
+                    // Если игрок не ответил, отменяем операцию
+                    player.sendMessage(ChatColor.RED + "Время ожидания истекло. Приглашение отменено.");
+                    waitForResponse.completeExceptionally(new TimeoutException("Timeout"));
                 }
-                else {
+            }, 60 * 20); // Ожидаем ответа не более 60 секунд
+
+            // Запускаем асинхронную задачу для ожидания ответа
+            Bukkit.getScheduler().runTaskAsynchronously(BookTownControl.getPlugin(BookTownControl.class), () -> {
+                Bukkit.getPluginManager().registerEvents(chatListener, BookTownControl.getPlugin(BookTownControl.class));
+            });
+
+            // Ожидаем ответа от игрока
+            waitForResponse.thenAccept(response -> {
+                // После получения ответа выполняем действия
+                String message = chatListener.getResponse();
+                if (message == null || message.equalsIgnoreCase("cancel") || message.equalsIgnoreCase("c") || message.equalsIgnoreCase("n") || message.equalsIgnoreCase("no") || message.equalsIgnoreCase("отмена") || message.equalsIgnoreCase("н") || message.equalsIgnoreCase("нет") || message.equalsIgnoreCase("о")) {
+                    // Отмена
+                    player.sendMessage(ChatColor.RED + "Приглашение отменено.");
+                } else {
                     // Проверка ника игрока
                     if (Bukkit.getPlayerExact(message) == null) {
                         player.sendMessage(ChatColor.RED + "Неверный никнейм.");
-                    }
-                    else {
-                        Bukkit.getScheduler().runTaskAsynchronously(BookTownControl.getPlugin(BookTownControl.class), () -> {
-                            // Ваш код выполнения команды
-                            player.performCommand("town invite "+Bukkit.getPlayerExact(message).getName());
+                    } else {
+                        // Выполняем команду приглашения игрока
+                        Bukkit.getScheduler().runTask(BookTownControl.getPlugin(BookTownControl.class), () -> {
+                            if(TownyUniverse.getInstance().getResident(message).getTownOrNull() == null) {
+                                player.performCommand("town invite " + Bukkit.getPlayerExact(message).getName());
+                            }
+                            else {
+                                player.sendMessage(ChatColor.RED + "Игрок уже состоит в другом государстве.");
+                            }
+
                         });
 
-                        //player.sendMessage(ChatColor.GREEN + "Приглашение игроку "+Bukkit.getPlayerExact(message).getName()+" отправлено ");
-                        player.performCommand("town invite "+Bukkit.getPlayerExact(message).getName());
                         // Разблокировка чата
-
-                        commandListener.setBlockCommands(false);
-                        HandlerList.unregisterAll(commandListener);
-                        chatListener.setChatEnabled(false);
                         HandlerList.unregisterAll(chatListener);
                     }
                 }
@@ -681,7 +646,7 @@ public class cmds implements CommandExecutor {
                                 int priority = armyPlayer.getPriority();
 
                                 if (priority >= 5) {
-                                    sender.sendMessage("Используйте /army disband");
+                                    sender.sendMessage(ChatColor.RED+ "Вы глава армии, выйти из неё не получится. Либо передайте права другому человеку, либо распустите армию используя /army disband");
                                 }
                                 else {
                                     if (confirm.equalsIgnoreCase("true")) {
@@ -712,7 +677,6 @@ public class cmds implements CommandExecutor {
 
                     if (town != null && army != null) {
                         if(!priorityCheck(4,army,player)) return false;
-                        if(BookTownControl.townAddition.get(town.getUUID()).isContractBook()) {
                             army.inviteCountry(town);
                             Resident mayor = town.getMayor();
                             TextComponent acceptButton = new TextComponent(net.md_5.bungee.api.ChatColor.GREEN+"[Принять]");
@@ -722,10 +686,7 @@ public class cmds implements CommandExecutor {
                             mayor.getPlayer().sendMessage("Вы хотите, чтобы к вам присоединилась армия " + army.getName());
                             mayor.getPlayer().spigot().sendMessage(acceptButton);
                             player.sendMessage("Предложение о присоединении армии отправлено стране " + town.getName());
-                        }
-                        else {
-                            player.sendMessage("Страна ещё не может подписывать контракты");
-                        }
+
                     } else {
                         player.sendMessage("Страна не найдена");
                     }

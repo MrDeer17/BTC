@@ -19,6 +19,8 @@ import org.bukkit.plugin.Plugin;
 import org.bukkit.scheduler.BukkitRunnable;
 
 import java.util.*;
+import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.TimeUnit;
 
 public class InventoryManager implements Listener {
 
@@ -592,10 +594,15 @@ public class InventoryManager implements Listener {
         int totalPages = (int) Math.ceil((double) countries.size() / pageSize); // Общее количество страниц
 
         // Проверка валидности номера страницы
+        if(totalPages == 0) {
+            player.sendMessage(ChatColor.RED + "Пока что в мире не создано ни одной страны.");
+            return;
+        }
         if (page < 1) {
             player.sendMessage(ChatColor.RED + "Некорректный номер страницы.");
             return;
-        } else if (page > totalPages) {
+        }
+        else if (page > totalPages) {
             page = totalPages;
         }
 
@@ -617,12 +624,20 @@ public class InventoryManager implements Listener {
             List<String> lore = new ArrayList<>();
             lore.add(ChatColor.YELLOW + "Население: " + country.getResidents().size());
             lore.add(ChatColor.YELLOW + "Глава: " + country.getMayor());
+            Town town = TownyUniverse.getInstance().getResident(player.getUniqueId()).getTownOrNull();
             if(country.isOpen()) {
                 lore.add(ChatColor.GREEN + "Свободный вход");
+                if(town != null) {
+                    lore.add(ChatColor.GREEN + "\nНажмите чтобы присоединиться");
+                }
             }
             else {
                 lore.add(ChatColor.GREEN + "Вход по подтверждению");
+                if(town != null) {
+                    lore.add(ChatColor.RED + "\nНажмите чтобы отправить заявку на вступление");
+                }
             }
+
 
 
             meta.setLore(lore);
@@ -662,7 +677,8 @@ public class InventoryManager implements Listener {
         MyHolder holder = new MyHolder();
         Town town = TownyUniverse.getInstance().getResident(player.getUniqueId()).getTownOrNull();
         if(town == null) {
-            CountriesStatisticAndJoinMenu(player,1);
+            player.closeInventory();
+            player.sendMessage(ChatColor.RED+"Вы не состоите в стране, вы можете выбрать страну в меню во вкладке "+ChatColor.YELLOW+"\"Другие страны\"");
             return;
         }
 
@@ -679,7 +695,7 @@ public class InventoryManager implements Listener {
             ItemStack ironSword = new ItemStack(Material.IRON_SWORD);
             ItemMeta ironSwordMeta = ironSword.getItemMeta();
             ironSwordMeta.setDisplayName(ChatColor.RED+"Военные конфликты");
-            ironSwordMeta.setLore(Arrays.asList(ChatColor.RED+"Ваша страна "+(!BookTownControl.CheckForWarInTown(town).equals(null) ? "" : "не ")+"участвует в военном конфликте"));
+            ironSwordMeta.setLore(Arrays.asList(ChatColor.RED+"Ваша страна "+(BookTownControl.CheckForWarInTown(town) != null ? "" : "не ")+"участвует в военном конфликте"));
             ironSwordMeta.addItemFlags(ItemFlag.HIDE_ATTRIBUTES);
             ironSword.setItemMeta(ironSwordMeta);
             inventory.setItem(4, ironSword);
@@ -914,60 +930,62 @@ public class InventoryManager implements Listener {
                         } // Подсчитываем количество золотых слитков в инвентаре игрока
 
                         if (goldIngotCount >= 128) {
-                            player.sendMessage("Для отмены введите cancel");
+                            CompletableFuture<Void> waitForResponse = new CompletableFuture<>();
+                            ChatListener chatListener = new ChatListener(player, waitForResponse);
+
+                            // Отправляем сообщение и ожидаем ответа
+                            player.sendMessage("Для отмены введите 'cancel'");
                             player.sendMessage("Введите название армии в чате:");
-                            // Регистрируем слушателя чата
-                            ChatListener chatListener = new ChatListener(player);
-                            Bukkit.getPluginManager().registerEvents(chatListener, plugin);
-                            CommandListener commandListener = new CommandListener(player);
-                            Bukkit.getPluginManager().registerEvents(commandListener, plugin);
-                            commandListener.setBlockCommands(true);
-                            commandListener.setOnCommandExecuted((command) -> {
-                                player.sendMessage(ChatColor.RED + "Вы не можете использовать команды во время этой операции.");
+
+                            // Запускаем асинхронную задачу для ожидания ответа
+                            Bukkit.getScheduler().runTaskAsynchronously(plugin, () -> {
+                                Bukkit.getPluginManager().registerEvents(chatListener, plugin);
                             });
-                            chatListener.setChatEnabled(true);
-                            chatListener.setOnChatMessageReceived((message) -> {
-                                // Получаем название армии из сообщения
 
-                                String armyName = message;
-                                if (armyName.equalsIgnoreCase("cancel") || armyName.equalsIgnoreCase("c") || armyName.equalsIgnoreCase("n") || armyName.equalsIgnoreCase("no") || armyName.equalsIgnoreCase("отмена") || armyName.equalsIgnoreCase("н") || armyName.equalsIgnoreCase("нет") || armyName.equalsIgnoreCase("о")) {
+                            // Ожидаем ответа от игрока с ограничением в 60 секунд
+                            waitForResponse.orTimeout(60, TimeUnit.SECONDS).thenAccept(response -> {
+                                // После получения ответа выполняем действия
+                                String armyName = chatListener.getResponse();
+                                if (armyName == null) {
                                     // Отмена
+                                    chatListener.unregisterChatListener(chatListener);
                                     player.sendMessage(ChatColor.RED + "Создание отменено");
-                                    World world = player.getWorld();
-                                    new BukkitRunnable() {
-                                        @Override
-                                        public void run() {
-                                            // Drop the item synchronously
-                                        }
-                                    }.runTask(plugin);
-
-                                }
-                                else {
+                                } else {
                                     int goldIngotCount2 = 0;
                                     for (ItemStack item : player.getInventory().getContents()) {
                                         if (item != null && item.getType() == Material.GOLD_INGOT) {
                                             goldIngotCount2 += item.getAmount();
                                         }
                                     }
-                                    if(goldIngotCount2 >= 128) {
-                                        player.getInventory().removeItem(new ItemStack(Material.GOLD_INGOT, 64));
-                                        player.getInventory().removeItem(new ItemStack(Material.GOLD_INGOT, 64));
+
+                                    if (goldIngotCount2 >= 128) {
+                                        ItemStack goldIngotStack = new ItemStack(Material.GOLD_INGOT, 64);
+                                        ItemStack offhandItem = player.getInventory().getItemInOffHand();
+                                        if (offhandItem.getType() == Material.GOLD_INGOT) {
+                                            player.getInventory().removeItem(new ItemStack(Material.GOLD_INGOT, 64-offhandItem.getAmount()));
+                                            offhandItem.setAmount(0);
+                                        } else {
+                                            player.getInventory().removeItem(goldIngotStack);
+                                        }
+
+                                        // Теперь забрали золото из второй руки (если было), забираем оставшееся золото
+                                        player.getInventory().removeItem(goldIngotStack);
                                         Army newArmy = new Army(armyName);
-                                        newArmy.addPlayer(player.getUniqueId(),5);
+                                        newArmy.addPlayer(player.getUniqueId(), 5);
                                         BookTownControl.Armys.add(newArmy);
-                                        player.sendMessage("Армия "+armyName+" создана\n/army - меню армии");
-                                    }
-                                    else {
-                                        player.sendMessage(ChatColor.RED+ "Для создания армии вам нужно иметь 2 стака золотых слитков.");
+                                        chatListener.unregisterChatListener(chatListener);
+                                        player.sendMessage("Армия " + armyName + " создана");
+                                    } else {
+                                        chatListener.unregisterChatListener(chatListener);
+                                        player.sendMessage(ChatColor.RED + "Для создания армии вам нужно иметь 2 стака золотых слитков.");
                                     }
                                 }
-                                // Разблокируем чат и удаляем слушателя чата
-                                chatListener.setChatEnabled(false);
-                                HandlerList.unregisterAll(chatListener);
-                                commandListener.setBlockCommands(false);
-                                HandlerList.unregisterAll(commandListener);
+                            }).exceptionally(e -> {
+                                // Обработка исключения в случае превышения времени ожидания
+                                chatListener.unregisterChatListener(chatListener);
+                                player.sendMessage(ChatColor.RED + "Время ожидания истекло. Приглашение отменено.");
+                                return null;
                             });
-                            return;
                         }
                         else {
                             player.sendMessage(ChatColor.RED+"Для создания армии вам нужно иметь 2 стака золотых слитков.");
@@ -977,42 +995,33 @@ public class InventoryManager implements Listener {
                 }
                 else if (inventoryTitle.contains("Моя армия")) {
                     if (displayName.contains("Пригласить в армию")) {
-                            // Регистрируем слушатель событий чата
                         player.closeInventory();
-                        player.sendMessage("Введите ник игрока которого хотите пригласить\nCancel для отмены");
-                            ChatListener chatListener = new ChatListener(player);
-                            chatListener.setChatEnabled(true);
-                            CommandListener commandListener = new CommandListener(player);
-                            Bukkit.getPluginManager().registerEvents(commandListener, plugin);
-                            commandListener.setBlockCommands(true);
-                            commandListener.setOnCommandExecuted((command) -> {
-                                player.sendMessage(ChatColor.RED + "Вы не можете использовать команды во время этой операции.");
-                            });
+                        player.sendMessage("Введите ник игрока, которого хотите пригласить\nCancel для отмены");
 
-                            chatListener.setOnChatMessageReceived((message) -> {
-                                // Получаем ник игрока из сообщения
-                                String invitedPlayerName = message;
+                        CompletableFuture<Void> waitForResponse = new CompletableFuture<>();
+                        ChatListener chatListener = new ChatListener(player, waitForResponse);
 
-                                // Выполняем команду "army add (ник игрока)"
-                                if (invitedPlayerName.equalsIgnoreCase("cancel") || invitedPlayerName.equalsIgnoreCase("c") || invitedPlayerName.equalsIgnoreCase("n") || invitedPlayerName.equalsIgnoreCase("no") || invitedPlayerName.equalsIgnoreCase("отмена") || invitedPlayerName.equalsIgnoreCase("н") || invitedPlayerName.equalsIgnoreCase("нет") || invitedPlayerName.equalsIgnoreCase("о")) {
-                                    // Отмена
-                                    player.sendMessage(ChatColor.RED + "Приглашение отменено.");
-                                }
-                                else {
-                                    String command = "army invite " + invitedPlayerName;
-                                    Bukkit.getScheduler().runTask(plugin, () -> {
-                                        player.performCommand(command);
-                                    });
-                                }
-                                // Разблокируем чат и удаляем слушателя событий чата
-                                chatListener.setChatEnabled(false);
-                                HandlerList.unregisterAll(chatListener);
-                                commandListener.setBlockCommands(false);
-                                HandlerList.unregisterAll(commandListener);
-                            });
+                        // Регистрируем слушатель событий чата
+                        Bukkit.getPluginManager().registerEvents(chatListener, plugin);
 
-                            // Регистрируем слушатель событий чата
-                            Bukkit.getPluginManager().registerEvents(chatListener, plugin);
+                        // Ожидаем ответа от игрока с ограничением в 60 секунд
+                        waitForResponse.orTimeout(60, TimeUnit.SECONDS).thenAccept(response -> {
+                            // После получения ответа выполняем действия
+                            String invitedPlayerName = chatListener.getResponse();
+
+                            if (invitedPlayerName == null || invitedPlayerName.equalsIgnoreCase("cancel") || invitedPlayerName.equalsIgnoreCase("c") || invitedPlayerName.equalsIgnoreCase("n") || invitedPlayerName.equalsIgnoreCase("no") || invitedPlayerName.equalsIgnoreCase("отмена") || invitedPlayerName.equalsIgnoreCase("н") || invitedPlayerName.equalsIgnoreCase("нет") || invitedPlayerName.equalsIgnoreCase("о")) {
+                                // Отмена
+                                player.sendMessage(ChatColor.RED + "Приглашение отменено.");
+                            } else {
+                                String command = "army invite " + invitedPlayerName;
+                                Bukkit.getScheduler().runTask(plugin, () -> {
+                                    player.performCommand(command);
+                                });
+                            }
+
+                            // Разблокируем чат
+                            HandlerList.unregisterAll(chatListener);
+                        });
                     }
                     else if (displayName.contains("Список бойцов")) { //+
                         showArmyMembersMenu(player);
@@ -1184,6 +1193,11 @@ public class InventoryManager implements Listener {
                     } else {
                         // Получить страну из TownyUniverse по названию предмета
                         Town town = TownyUniverse.getInstance().getTown(ChatColor.stripColor(itemName));
+                        Town townIsPlayerIn = TownyUniverse.getInstance().getResident(player.getUniqueId()).getTownOrNull();
+                        if(townIsPlayerIn != null) {
+                            return;
+                        }
+                        //                                                                                      ФИЩЩИФЫАЙЦУАЙЦАЙЦА
                         if (town != null) {
                             if(town.isOpen()) {
                                 player.performCommand("town join "+ChatColor.stripColor(itemName));
@@ -1255,43 +1269,35 @@ public class InventoryManager implements Listener {
                         CountriesStatisticAndJoinMenu(player,1);
                     }
                     if (displayName.contains("Пригласить в страну")) {
-                        // Регистрируем слушатель событий чата
                         player.closeInventory();
-                        player.sendMessage("Введите ник игрока которого хотите пригласить\nCancel для отмены");
-                        ChatListener chatListener = new ChatListener(player);
-                        chatListener.setChatEnabled(true);
-                        CommandListener commandListener = new CommandListener(player);
-                        Bukkit.getPluginManager().registerEvents(commandListener, plugin);
-                        commandListener.setBlockCommands(true);
-                        commandListener.setOnCommandExecuted((command) -> {
-                            player.sendMessage(ChatColor.RED + "Вы не можете использовать команды во время этой операции.");
-                        });
+                        player.sendMessage("Введите ник игрока, которого хотите пригласить\nCancel для отмены");
 
-                        chatListener.setOnChatMessageReceived((message) -> {
-                            // Получаем ник игрока из сообщения
-                            String invitedPlayerName = message;
+                        CompletableFuture<Void> waitForResponse = new CompletableFuture<>();
+                        ChatListener chatListener = new ChatListener(player, waitForResponse);
 
-                            // Выполняем команду "army add (ник игрока)"
-                            if (invitedPlayerName.equalsIgnoreCase("cancel") || invitedPlayerName.equalsIgnoreCase("c") || invitedPlayerName.equalsIgnoreCase("n") || invitedPlayerName.equalsIgnoreCase("no") || invitedPlayerName.equalsIgnoreCase("отмена") || invitedPlayerName.equalsIgnoreCase("н") || invitedPlayerName.equalsIgnoreCase("нет") || invitedPlayerName.equalsIgnoreCase("о")) {
+                        // Регистрируем слушатель событий чата
+                        Bukkit.getPluginManager().registerEvents(chatListener, plugin);
+
+                        // Ожидаем ответа от игрока с ограничением в 60 секунд
+                        waitForResponse.orTimeout(60, TimeUnit.SECONDS).thenAccept(response -> {
+                            // После получения ответа выполняем действия
+                            String invitedPlayerName = chatListener.getResponse();
+
+                            if (invitedPlayerName == null || invitedPlayerName.equalsIgnoreCase("cancel") || invitedPlayerName.equalsIgnoreCase("c") || invitedPlayerName.equalsIgnoreCase("n") || invitedPlayerName.equalsIgnoreCase("no") || invitedPlayerName.equalsIgnoreCase("отмена") || invitedPlayerName.equalsIgnoreCase("н") || invitedPlayerName.equalsIgnoreCase("нет") || invitedPlayerName.equalsIgnoreCase("о")) {
                                 // Отмена
                                 player.sendMessage(ChatColor.RED + "Приглашение отменено.");
-                            }
-                            else {
+                            } else {
                                 String command = "town invite " + invitedPlayerName;
                                 Bukkit.getScheduler().runTask(plugin, () -> {
                                     player.performCommand(command);
                                 });
                             }
-                            // Разблокируем чат и удаляем слушателя событий чата
-                            chatListener.setChatEnabled(false);
-                            HandlerList.unregisterAll(chatListener);
-                            commandListener.setBlockCommands(false);
-                            HandlerList.unregisterAll(commandListener);
-                        });
 
-                        // Регистрируем слушатель событий чата
-                        Bukkit.getPluginManager().registerEvents(chatListener, plugin);
+                            // Разблокируем чат
+                            chatListener.unregisterChatListener(chatListener);
+                        });
                     }
+
                     else if (displayName.contains("Список участников")) {
                         player.performCommand("town reslist");
                         player.closeInventory();
@@ -1330,69 +1336,56 @@ public class InventoryManager implements Listener {
     }
 
 
-    public void changePlayerPriority(OfflinePlayer selectedPlayer,Player leadPlayer , Army army) {
+    public void changePlayerPriority(OfflinePlayer selectedPlayer, Player leadPlayer, Army army) {
         leadPlayer.closeInventory();
         leadPlayer.sendMessage("Введите ранк игрока от 1 до 5, если вы введёте 5, то ваш приоритет станет 4, и вы передадите лидерство\nОтмена для отмены");
 
-        ChatListener chatListener = new ChatListener(leadPlayer);
-        chatListener.setChatEnabled(true);
+        CompletableFuture<Void> waitForResponse = new CompletableFuture<>();
+        ChatListener chatListener = new ChatListener(leadPlayer, waitForResponse);
 
-        chatListener.setOnChatMessageReceived((message) -> {
-            // Проверяем, была ли команда отмены
-            if (message.equalsIgnoreCase("отмена") || message.equalsIgnoreCase("cancel")) {
+
+        // Регистрируем слушатель событий чата
+        Bukkit.getPluginManager().registerEvents(chatListener, plugin);
+
+        // Ожидаем ответа от игрока с ограничением в 60 секунд
+        waitForResponse.orTimeout(60, TimeUnit.SECONDS).thenAccept(response -> {
+            // После получения ответа выполняем действия
+            String message = chatListener.getResponse();
+
+            if (message == null || message.equalsIgnoreCase("отмена") || message.equalsIgnoreCase("cancel")) {
                 // Отмена
                 leadPlayer.sendMessage(ChatColor.RED + "Изменение приоритета отменено.");
             } else {
                 try {
                     int priority = Integer.parseInt(message);
                     int leadPriority = army.getPlayer(leadPlayer).getPriority();
-                    int YouPriority = army.getPlayer(selectedPlayer).getPriority();
-                    if (priority >= leadPriority && leadPriority != 5) {
-                        leadPlayer.sendMessage(ChatColor.RED + "Вы не можете выдать приоритет выше своего текущего приоритета.");
-                        return;
-                    }
-                    else if(YouPriority >= leadPriority && leadPriority != 5) {
-                        leadPlayer.sendMessage(ChatColor.RED + "Вы не можете изменить приоритет игрока ранга выше вашего.");
-                    }
+                    int youPriority = army.getPlayer(selectedPlayer).getPriority();
+
                     if (selectedPlayer == leadPlayer) {
                         leadPlayer.sendMessage(ChatColor.RED + "Вы не можете менять ранг себе.");
-                        return;
-                    }
-                    if (priority >= 1 && priority <= 4) {
-                        // Проверяем, что лидер не пытается изменить приоритет самому себе
-                        // Проверяем, что лидер не пытается выдать приоритет выше своего текущего приоритета
-
-
+                    } else if (priority < 1 || priority > 5) {
+                        leadPlayer.sendMessage(ChatColor.RED + "Неверный ранк. Ранк должен быть от 1 до 5.");
+                    } else if (leadPriority != 5 && priority >= leadPriority) {
+                        leadPlayer.sendMessage(ChatColor.RED + "Вы не можете выдать приоритет выше своего текущего приоритета.");
+                    } else if (youPriority >= leadPriority && leadPriority != 5) {
+                        leadPlayer.sendMessage(ChatColor.RED + "Вы не можете изменить приоритет игрока ранга выше вашего.");
+                    } else {
                         // Логика для изменения приоритета игрока
                         // Например, вы можете использовать армейский API для изменения приоритета игрока
                         Army.ArmyPlayer armyPlayer = army.getPlayer(selectedPlayer);
                         army.addPlayer(selectedPlayer.getUniqueId(), priority);
                         leadPlayer.sendMessage(ChatColor.GREEN + "Приоритет успешно изменен на " + priority);
                     }
-                    else if (priority == 5) {
-                        // Проверяем, что лидер не пытается передать лидерство самому себе
-
-                        // Логика для передачи лидерства
-                        Army.ArmyPlayer armyPlayer = army.getPlayer(selectedPlayer);
-                        army.addPlayer(leadPlayer.getUniqueId(), 4);
-                        army.addPlayer(selectedPlayer.getUniqueId(), 5);
-                        leadPlayer.sendMessage(ChatColor.GREEN + "Лидерство передано игроку " + selectedPlayer.getName());
-                    } else {
-                        leadPlayer.sendMessage(ChatColor.RED + "Неверный ранк. Ранк должен быть от 1 до 5.");
-                    }
                 } catch (NumberFormatException e) {
                     leadPlayer.sendMessage(ChatColor.RED + "Неверный формат ранка. Введите число от 1 до 5.");
                 }
             }
 
-            // Разблокируем чат и удаляем слушателя событий чата
-            chatListener.setChatEnabled(false);
-            HandlerList.unregisterAll(chatListener);
+            // Разблокируем чат
+            chatListener.unregisterChatListener(chatListener);
         });
-
-        // Регистрируем слушатель событий чата
-        Bukkit.getPluginManager().registerEvents(chatListener, plugin);
     }
+
     private static class MyHolder implements InventoryHolder {
 
         private Inventory inventory;

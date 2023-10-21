@@ -55,7 +55,7 @@ public class War implements Serializable {
             side2WarriorsCount = side2Warriors.size();
         }
 
-        if (side1WarriorsCount == side2WarriorsCount) {
+        if ((side1WarriorsCount == side2WarriorsCount) && (side1WarriorsCount > 1)) {
             this.StartDate = new Date();
             this.isStarted = true;
             Bukkit.broadcastMessage(ChatColor.RED + "Началась война между " + town1.getName() + " и " + town2.getName());
@@ -63,21 +63,45 @@ public class War implements Serializable {
             int daysToReinforce = 4;
             this.StartDate = new Date(System.currentTimeMillis() + (daysToReinforce * 24 * 60 * 60 * 1000));
             this.isStarted = false;
+            Player Mayor1 = town1.getMayor().getPlayer();
+            Player Mayor2 = town2.getMayor().getPlayer();
             int warriorsDifference = Math.abs(side1WarriorsCount - side2WarriorsCount);
-
-
 
             if (side1WarriorsCount > side2WarriorsCount) {
                 if (side1WarriorsCount < 2) {
                     side1WarriorsCount = 2 - warriorsDifference;
                 }
-                town2.getMayor().getPlayer().sendMessage("У вас есть " + daysToReinforce + " дня на укрепление армии. Вам не хватает " + warriorsDifference + " бойцов.");
+                if (Mayor1 != null && Mayor1.isOnline()) {
+                    Mayor1.sendMessage("У вас есть " + daysToReinforce + " дня на укрепление армии. Вам не хватает " + warriorsDifference + " бойцов.");
+                }
+
             }
             else if(side2WarriorsCount > side1WarriorsCount) {
                 if (side2WarriorsCount < 2) {
                     side2WarriorsCount = 2 - warriorsDifference;
                 }
-                town1.getMayor().getPlayer().sendMessage("У вас есть " + daysToReinforce + " дня на укрепление армии. Вам не хватает " + warriorsDifference + " бойцов.");
+                if (Mayor2 != null && Mayor2.isOnline()) {
+                    Mayor2.sendMessage("У вас есть " + daysToReinforce + " дня на укрепление армии. Вам не хватает " + warriorsDifference + " бойцов.");
+                }
+
+            }
+            else {
+                if (side1WarriorsCount < 2) {
+                    side1WarriorsCount = 2 - warriorsDifference;
+                    if (Mayor1 != null && Mayor1.isOnline()) {
+                        Mayor1.sendMessage("У вас есть " + daysToReinforce + " дня на укрепление армии. Вам не хватает " + warriorsDifference + " бойцов.");
+                    }
+
+                }
+                if (side2WarriorsCount < 2) {
+                    side2WarriorsCount = 2 - warriorsDifference;
+
+                    if (Mayor2 != null && Mayor2.isOnline()) {
+                        Mayor2.sendMessage("У вас есть " + daysToReinforce + " дня на укрепление армии. Вам не хватает " + warriorsDifference + " бойцов.");
+                    }
+
+                }
+
             }
         }
     }

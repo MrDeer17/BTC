@@ -10,11 +10,13 @@ import java.util.*;
 public class TownAddition implements Serializable {
     private UUID soowner = null;
     private List<Army> invitedArmys = new ArrayList<>();
-    private List<String> townItemMap = new ArrayList<>();
+    private List<String> townItemMap;
     private Map<ChunkCoord, Integer> chunkPriorityMap = new HashMap<>();
-    private boolean contractBook = false;
     public TownAddition() {
         BookTownControl.saveTownAdditionMap();
+        List<String> start = new ArrayList<>();
+        start.add("");
+        townItemMap = start;
     }
     public List<String> getTownItemMap() {
         return townItemMap;
@@ -28,13 +30,6 @@ public class TownAddition implements Serializable {
     }
     public void addChunckPriorityMap(ChunkCoord chunkCoord, int priority) {
         this.chunkPriorityMap.put(chunkCoord, priority);
-        BookTownControl.saveTownAdditionMap();
-    }
-    public boolean isContractBook() {
-        return contractBook;
-    }
-    public void setContractBook(boolean contractBook) {
-        this.contractBook = contractBook;
         BookTownControl.saveTownAdditionMap();
     }
 

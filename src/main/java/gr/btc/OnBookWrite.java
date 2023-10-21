@@ -16,23 +16,34 @@ import com.palmergames.bukkit.util.BukkitTools;
 import net.md_5.bungee.api.ChatMessageType;
 import net.md_5.bungee.api.chat.*;
 import org.bukkit.*;
+import org.bukkit.entity.Item;
 import org.bukkit.entity.Player;
 import org.bukkit.event.EventHandler;
+import org.bukkit.event.HandlerList;
 import org.bukkit.event.Listener;
 import org.bukkit.event.inventory.InventoryClickEvent;
 import org.bukkit.event.inventory.PrepareAnvilEvent;
+import org.bukkit.event.player.PlayerDropItemEvent;
 import org.bukkit.event.player.PlayerEditBookEvent;
 import org.bukkit.event.player.PlayerInteractEvent;
+import org.bukkit.event.player.PlayerSwapHandItemsEvent;
 import org.bukkit.inventory.AnvilInventory;
 import org.bukkit.inventory.InventoryView;
 import org.bukkit.inventory.ItemStack;
 import org.bukkit.inventory.meta.BookMeta;
 import org.bukkit.inventory.meta.ItemMeta;
+import org.bukkit.scheduler.BukkitRunnable;
 
 import java.text.DecimalFormat;
 import java.util.*;
+import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.ExecutionException;
+import java.util.concurrent.TimeUnit;
+import java.util.concurrent.TimeoutException;
 
 public class OnBookWrite implements Listener {
+    public static Map<UUID, Long> playerSelectionTime = new HashMap<>();
+    public static Map<UUID, BukkitRunnable> playerSelectionTask = new HashMap<>();
     @EventHandler
     public void onBookWrite(PlayerEditBookEvent event) {
         if (!(event.getNewBookMeta().getDisplayName().equalsIgnoreCase(main.genGr("Книга создания страны","#FF0E6C","#C90AFF"))) || !event.isSigning()) {
@@ -41,10 +52,9 @@ public class OnBookWrite implements Listener {
 
         Player player = event.getPlayer();
         List<String> pages = event.getNewBookMeta().getPages();
-        Resident resik = new Resident(player.getName());
+        Resident resik = TownyUniverse.getInstance().getResident(player.getName());
         ItemStack book = event.getPlayer().getInventory().getItemInMainHand();
-
-            for (Town t : TownyUniverse.getInstance().getTowns()) {
+        for (Town t : TownyUniverse.getInstance().getTowns()) {
                 if (t.getResidents().contains(resik)) {
                     if (Objects.equals(t.getMayor().getPlayer(), resik.getPlayer()) || BookTownControl.townAddition.get(t.getUUID()).retso().equals(player.getUniqueId())) {
                         if (book.getItemMeta().hasDisplayName() && book.getItemMeta().getDisplayName().equalsIgnoreCase(main.genGr("Книга создания страны", "#FF0E6C", "#C90AFF"))) {
@@ -62,6 +72,7 @@ public class OnBookWrite implements Listener {
                     else {
                         player.sendMessage("Вы уже в стране, но у вас недостаточно прав");
                         event.setCancelled(true);
+                        return;
                     }
                 }
             }
@@ -111,16 +122,8 @@ public class OnBookWrite implements Listener {
         if(!player.isOp()) {
             String goa = getOnlineAdmins();
             WorldCoord coordsCheck = new WorldCoord(fonder.getWorld(),x-10,y-10);
-            for (int i = 0; i <= 20; i++) {
-                for (int j = 0; j <= 20; j++) {
-                    if(!(coordsCheck.isWilderness())) {
-                        player.sendMessage("Этот чанк занят");
-                        return;
-                    } //Занят ли чанк
-                    coordsCheck.add(1,0);
-                    System.out.println(coordsCheck.getCoord().getX()+"  "+coordsCheck.getCoord().getZ());
-                }
-                coordsCheck.add(0,-20);
+            if (isChunkOccupied(coordsCheck, player.getWorld(), player)) {
+                return;
             }
             if(goa.equals("")) {
                 player.sendMessage("Сейчас на сервере нет админов, сообщите об этом в канал в дискорде");
@@ -135,17 +138,9 @@ public class OnBookWrite implements Listener {
             }
             Resident nr = new Resident(fonder.getName());
             WorldCoord coordsCheck = new WorldCoord(fonder.getWorld(),x-10,y-10);
-            for (int i = 0; i <= 20; i++) {
-                for (int j = 0; j <= 20; j++) {
-                    if(!(coordsCheck.isWilderness())) {
-                        player.sendMessage("Этот чанк занят");
-                        return;
-                    } //Занят ли чанк
-                    coordsCheck = new WorldCoord(fonder.getWorld(),(x-10)+i,(y-10)+j);
-                }
-
+            if (isChunkOccupied(coordsCheck, player.getWorld(), player)) {
+                return;
             }
-            player.sendMessage("Проверка чанка успешна");
             WorldCoord coords = new WorldCoord(fonder.getWorld(),x,y);
             try {
                 Town town = newTown(coords.getTownyWorld(),countryName,nr,coords.getCoord(),new Location(fonder.getWorld(),0,0,0),nr.getPlayer());
@@ -159,7 +154,6 @@ public class OnBookWrite implements Listener {
 
         } //Если это админчик
     }
-
 
     @EventHandler
     public void onPrepareAnvil(PrepareAnvilEvent e) {
@@ -197,6 +191,9 @@ public class OnBookWrite implements Listener {
             lore.add(ChatColor.GREEN+"Гайд - /guide");
             lore.add("");
             lore.add(ChatColor.GRAY+"Ctrl+A - выделить всю страницу");
+            lore.add("");
+            lore.add(ChatColor.GRAY+"Чтобы открыть книгу и перепроверить данные вручную");
+            lore.add(ChatColor.GRAY+"Нажмите Q (Выбросить предмет)");
             lore.add("");
             int minX = -2000;
             int maxX = 2000;
@@ -256,13 +253,46 @@ public class OnBookWrite implements Listener {
         }
     }
 
+
+    @EventHandler
+    public void onPlayerDropItem(PlayerDropItemEvent event) {
+        Player player = event.getPlayer();
+        ItemStack newMainHandItem = event.getItemDrop().getItemStack();
+
+        // Проверяем, что новый предмет в руке - книга с определенным названием
+        if (newMainHandItem.getType().equals(Material.WRITABLE_BOOK)) {
+            BookMeta bookMeta = (BookMeta) newMainHandItem.getItemMeta();
+            //System.out.println("Swap");
+            //Bukkit.getLogger().info(main.genGr("Книга создания страны","#FF0E6C","#C90AFF").toLowerCase()+"  " + bookMeta.getDisplayName().toLowerCase());
+            if (bookMeta != null && bookMeta.hasDisplayName() && bookMeta.getDisplayName().toLowerCase().contains(main.genGr("Книга создания страны","#FF0E6C","#C90AFF").toLowerCase())) {
+                // Открываем книгу
+                event.setCancelled(true);
+                if (newMainHandItem.getItemMeta().hasLore()) {
+                    List<String> lore = newMainHandItem.getItemMeta().getLore();
+                    if (lore.get(lore.size() - 2).contains("Открыто")) {
+                        lore.remove(lore.size() - 2); // Удаляем последний элемент
+                        player.sendMessage("Выбран автоматический режим заполнения книги");
+                    }
+                    else {
+                        lore.add(lore.size() - 1,  ChatColor.GREEN+"Открыто для чтения");
+                        player.sendMessage("Выбран ручной режим заполнения книги");
+                    }
+                    ItemMeta itemMeta = newMainHandItem.getItemMeta();
+                    itemMeta.setLore(lore);
+                    newMainHandItem.setItemMeta(itemMeta);
+                }
+            }
+        }
+    }
+
     @EventHandler
     public void onPlayerInteract(PlayerInteractEvent event) {
         Player player = event.getPlayer();
         ItemStack mainHandItem = player.getInventory().getItemInMainHand();
         // Проверка нажатия ПКМ и удержания клавиши Shift
-        if (event.getAction().name().contains("RIGHT_CLICK") && player.isSneaking() && mainHandItem.getType() == Material.WRITTEN_BOOK) {
 
+        if (event.getAction().name().contains("RIGHT_CLICK") && player.isSneaking() && mainHandItem.getType() == Material.WRITTEN_BOOK) {
+            //main.genGr("Книга создания страны","#FF0E6C","#C90AFF")) - название той книги которую нужно открывать в новом методе
 
             // Проверка наличия книги с определенным названием в основной руке
             Town town = new Town("");
@@ -334,6 +364,42 @@ public class OnBookWrite implements Listener {
             } //Если игрок ни в одном городе
             mainHandItem.setItemMeta(bm);
             player.openBook(mainHandItem);
+        }
+        else if(event.getAction().name().contains("RIGHT_CLICK") && mainHandItem.getType() == Material.WRITABLE_BOOK && mainHandItem.getItemMeta().hasDisplayName() && mainHandItem.getItemMeta().getDisplayName().toLowerCase().contains(main.genGr("Книга создания страны","#FF0E6C","#C90AFF").toLowerCase())) {
+            //System.out.println("9u4ki");
+            List<String> lore = mainHandItem.getItemMeta().getLore();
+            if (lore.get(lore.size() - 2).contains("Открыто")) {
+                return;
+            } //Если открыто для чтения то не выполнять код
+            Resident resik = TownyUniverse.getInstance().getResident(player.getName());
+            ItemStack book = event.getPlayer().getInventory().getItemInMainHand();
+            player.closeInventory();
+            for (Town t : TownyUniverse.getInstance().getTowns()) {
+                if (t.getResidents().contains(resik)) {
+                    if (Objects.equals(t.getMayor().getPlayer(), resik.getPlayer()) || BookTownControl.townAddition.get(t.getUUID()).retso().equals(player.getUniqueId())) {
+                        if (book.getItemMeta().hasDisplayName() && book.getItemMeta().getDisplayName().equalsIgnoreCase(main.genGr("Книга создания страны", "#FF0E6C", "#C90AFF"))) {
+                            Bukkit.getScheduler().runTaskLater(BookTownControl.getPlugin(BookTownControl.class), new Runnable() {
+                                public void run() {
+                                    event.getPlayer().getInventory().setItemInMainHand(null);
+                                    event.getPlayer().updateInventory();
+                                    GiveItemToFounder(t.getMayor().getPlayer(), t, true);
+                                }
+                            }, 1);
+
+                            return; // Выходим из цикла после удаления книги
+                        }
+                    }
+                    else {
+                        player.sendMessage("Вы уже в стране, но у вас недостаточно прав");
+                        event.setCancelled(true);
+                        return;
+                    }
+                }
+            } //Вернуть книгу если надо
+            BookMeta bMeta = (BookMeta) mainHandItem.getItemMeta();
+            AFB afn = new AFB();
+            afn.Start(player,bMeta,mainHandItem);
+            player.getInventory().remove(mainHandItem);
         }
     }
 
@@ -467,14 +533,8 @@ public class OnBookWrite implements Listener {
                 line5.setClickEvent(new ClickEvent(ClickEvent.Action.RUN_COMMAND, "/town unclaim"));
 
                 TextComponent line6 = new TextComponent();
-                if(!(BookTownControl.townAddition.get(town.getUUID()).isContractBook())) {
-                    line6 = new TextComponent(ChatColor.DARK_GREEN + "\nДобавить книгу контрактов\n");
-                    line6.setClickEvent(new ClickEvent(ClickEvent.Action.RUN_COMMAND, "/amendlaws "+town.getName()+" contractbook"));
-                }
-                else {
                     line6 = new TextComponent(ChatColor.DARK_GREEN + "\nРассмотреть контракты\n");
                     line6.setClickEvent(new ClickEvent(ClickEvent.Action.RUN_COMMAND, "/amendlaws "+town.getName()+" contractbook"));
-                }
                 if(BookTownControl.CheckForWar(town)) {
                     line7 = new TextComponent(ChatColor.DARK_RED + "Информация о войне");
                     line7.setClickEvent(new ClickEvent(ClickEvent.Action.RUN_COMMAND, "/country war"));
@@ -587,14 +647,8 @@ public class OnBookWrite implements Listener {
                 line5.setClickEvent(new ClickEvent(ClickEvent.Action.RUN_COMMAND, "/town unclaim"));
 
                 TextComponent line6 = new TextComponent();
-                if(!(BookTownControl.townAddition.get(town.getUUID()).isContractBook())) {
-                    line6 = new TextComponent(ChatColor.DARK_GREEN + "\nДобавить книгу контрактов\n");
-                    line6.setClickEvent(new ClickEvent(ClickEvent.Action.RUN_COMMAND, "/amendlaws "+town.getName()+" contractbook"));
-                }
-                else {
                     line6 = new TextComponent(ChatColor.DARK_GREEN + "\nРассмотреть контракты\n");
                     line6.setClickEvent(new ClickEvent(ClickEvent.Action.RUN_COMMAND, "/amendlaws "+town.getName()+" contractbook"));
-                }
                 pages.add(new BaseComponent[]{line2, new TextComponent("\n"), line4, new TextComponent("\n"), line5,line6});
                 return pages.toArray(new BaseComponent[0][]);
             }
@@ -824,7 +878,8 @@ public class OnBookWrite implements Listener {
     }
 
     public void invitePlayers(Player sender, List<String> playerList) {
-        if(playerList.isEmpty()) {
+        System.out.println(playerList.isEmpty());
+        if(playerList.get(0).equalsIgnoreCase("")) {
             return;
         }
         int invitationsSent = 0;
@@ -839,7 +894,7 @@ public class OnBookWrite implements Listener {
             }
 
             // Отправляем приглашение
-            invitedPlayer.performCommand("town invite " + sender.getName());
+            sender.performCommand("town invite " + sender.getName());
             invitationsSent++;
         }
 
@@ -849,5 +904,29 @@ public class OnBookWrite implements Listener {
             sender.sendMessage("Не удалось отправить приглашения " + invalidNames + " игрокам.");
         }
         sender.sendMessage("Всего отправлено приглашений: " + invitationsSent);
+    }
+
+
+    public static boolean isChunkOccupied(WorldCoord fonder, World world, Player player) {
+        int x = fonder.getX();
+        int y = fonder.getZ();
+        WorldCoord coordsCheck = new WorldCoord(world, x - 10, y - 10);
+        WorldCoord startCoord = new WorldCoord(world, x, y);
+        for (int i = 0; i <= 20; i++) {
+            for (int j = 0; j <= 20; j++) {
+                if (!coordsCheck.isWilderness()) {
+                    if(startCoord.isWilderness()) {
+                        player.sendMessage(ChatColor.RED+"Чанк находится вблизи другого государства");
+                    }
+                    else {
+                        player.sendMessage(ChatColor.RED+"Чанк занят");
+                    }
+
+                    return true;
+                }
+                coordsCheck = new WorldCoord(world, (x - 10) + i, (y - 10) + j);
+            }
+        }
+        return false;
     }
 }
