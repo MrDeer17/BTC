@@ -946,10 +946,16 @@ public class InventoryManager implements Listener {
                             waitForResponse.orTimeout(60, TimeUnit.SECONDS).thenAccept(response -> {
                                 // После получения ответа выполняем действия
                                 String armyName = chatListener.getResponse();
-                                if (armyName == null) {
+                                if (armyName == null || armyName.contains(" ")) {
                                     // Отмена
+                                    if(armyName.contains(" ")) {
+                                        player.sendMessage(ChatColor.RED + "Создание отменено, название не должно содержать пробелов.");
+                                    }
+                                    else {
+                                        player.sendMessage(ChatColor.RED + "Создание отменено");
+                                    }
                                     chatListener.unregisterChatListener(chatListener);
-                                    player.sendMessage(ChatColor.RED + "Создание отменено");
+
                                 } else {
                                     int goldIngotCount2 = 0;
                                     for (ItemStack item : player.getInventory().getContents()) {

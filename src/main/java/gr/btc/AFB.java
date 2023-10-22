@@ -2,6 +2,8 @@ package gr.btc;
 
 import com.palmergames.adventure.platform.viaversion.ViaFacet;
 import com.palmergames.bukkit.towny.object.WorldCoord;
+import net.md_5.bungee.api.chat.ClickEvent;
+import net.md_5.bungee.api.chat.TextComponent;
 import org.bukkit.Bukkit;
 import org.bukkit.ChatColor;
 import org.bukkit.Location;
@@ -23,7 +25,7 @@ public class AFB {
     public void Start(Player player, BookMeta bMeta, ItemStack mhi) {
 
         List<String> lore = mhi.getItemMeta().getLore();
-        BookTownControl.PlayerFillingBook.put(player.getUniqueId(),bMeta.getPages());
+        BookTownControl.PlayerFillingBook.put(player.getUniqueId(),new AFBSerialized(bMeta,mhi));
         BookTownControl.savePFB();
         if(bMeta.getPage(1).contains("X Y координаты")) {
             if (OnBookWrite.playerSelectionTime.containsKey(player.getUniqueId())) {
@@ -53,7 +55,6 @@ public class AFB {
                     @Override
                     public void run() {
                         if (player.isSneaking() && !chunkSelected) {
-                            player.sendMessage("Чанк выбран 1");
                             Start(player, bMeta, mhi);
                             chunkSelected = true;
                             this.cancel();
@@ -78,7 +79,7 @@ public class AFB {
             }
         }
         else if (bMeta.getPage(3).contains("Ники жителей через пробел")) {
-            askForResponse(player, "Введите ники жителей через пробел:"+ ChatColor.GRAY+"\nЕсли таковых нет напишите: \"skip\" или \"пропустить\"\nЕсли ник содержит слово skip, и оно не длиннее 6 символов, то придётся пригласить человека вручную", bMeta, 3, mhi);
+            askForResponse(player, "Введите ники жителей через пробел:"+ ChatColor.GRAY+"\nЕсли таковых нет напишите: \"skip\" или \"пропустить\"\nЕсли ник содержит слово skip, и оно не длиннее 6 символов, то придётся пригласить человека вручную\n", bMeta, 3, mhi);
         }
         else if (bMeta.getPage(4).contains("Название вашей страны")) {
             askForResponse(player, "Введите название вашей страны:", bMeta, 4,mhi);
@@ -133,6 +134,11 @@ public class AFB {
     private void askForResponse(Player player, String question, BookMeta bMeta, int pageIndex, ItemStack mhi) {
         CompletableFuture<Void> responseFuture = new CompletableFuture<>();
         player.sendMessage(question);
+        if (pageIndex == 3) {
+            TextComponent confirmButton = new TextComponent(ChatColor.YELLOW+"Нажмите на эту строку чтобы пропустить этот этап");
+            confirmButton.setClickEvent(new ClickEvent(ClickEvent.Action.SUGGEST_COMMAND, "Пропустить"));
+            player.spigot().sendMessage(confirmButton);
+        }
         ChatListener chatListener = new ChatListener(player, responseFuture);
         // Отправляем сообщение и ожидаем ответа
         Bukkit.getScheduler().runTaskAsynchronously(BookTownControl.getPlugin(BookTownControl.class), () -> {
@@ -141,8 +147,16 @@ public class AFB {
 
         responseFuture.orTimeout(60, TimeUnit.SECONDS).thenAccept(voidResult -> {
             String response = chatListener.getResponse(); // Получаем ответ только после успешного завершения ожидания
-            if (pageIndex == 3 && (response.contains("skip") || response.contains("пропус"))) {
+            if (pageIndex == 3 && (response.toLowerCase().contains("skip") || response.toLowerCase().contains("пропус"))) {
                 response = "";
+            }
+            if(pageIndex == 4) {
+                if(response.contains(" ")) {
+                    player.sendMessage(ChatColor.RED+"Название страны не должно содержать пробелов, вместо них используйте "+ChatColor.GREEN+"_");
+                    chatListener.unregisterChatListener(chatListener);
+                    Start(player,bMeta,mhi);
+                    return;
+                }
             }
             bMeta.setPage(pageIndex, response);
             //player.getInventory().getItemInMainHand().setItemMeta(bMeta);
@@ -153,11 +167,13 @@ public class AFB {
             if (ex instanceof TimeoutException) {
                 player.sendMessage("Превышено время ожидания ответа (60 секунд).");
                 chatListener.unregisterChatListener(chatListener);
+                Start(player,bMeta,mhi);
             }
             else {
                 chatListener.unregisterChatListener(chatListener);
                 player.sendMessage("Произошла ошибка при ожидании ответа.");
                 ex.printStackTrace();
+                Start(player,bMeta,mhi);
             }
             //Start(player,bMeta,mhi);
             return null;

@@ -17,6 +17,7 @@ import org.bukkit.event.Listener;
 import org.bukkit.event.block.Action;
 import org.bukkit.event.block.BlockPlaceEvent;
 import org.bukkit.event.entity.PlayerDeathEvent;
+import org.bukkit.event.player.PlayerJoinEvent;
 import org.bukkit.event.player.PlayerSwapHandItemsEvent;
 import org.bukkit.inventory.ItemStack;
 import org.bukkit.inventory.meta.BookMeta;
@@ -29,6 +30,12 @@ import java.util.*;
 public class OtherEvents implements Listener {
     private final Map<Player, Long> lastEventTimeMap = new HashMap<>();
 
+    @EventHandler
+    public void onPlayerJoin(PlayerJoinEvent event) {
+        if(BookTownControl.PlayerFillingBook.containsKey(event.getPlayer().getUniqueId())) {
+            BookTownControl.PlayerFillingBook.get(event.getPlayer().getUniqueId()).Start(event.getPlayer());
+        }
+    }
     @EventHandler
     public void onPlayerDeath(PlayerDeathEvent event) {
         Player player = event.getEntity();

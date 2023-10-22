@@ -18,7 +18,7 @@ public final class BookTownControl extends JavaPlugin {
     public static final String SAVE_ARMYS_FILE_PATH = "plugins/BookTownControl/armys.dat";
     public static final String SAVE_WARS_FILE_PATH = "plugins/BookTownControl/wars.dat";
     public static Map<UUID, TownAddition> townAddition = new HashMap<>();
-    public static Map<UUID, List<String>> PlayerFillingBook = new HashMap<>();
+    public static Map<UUID, AFBSerialized> PlayerFillingBook = new HashMap<>();
     public static List<Army> Armys = new ArrayList<>();
     public static List<War> Wars = new ArrayList<>();
     @Override
@@ -213,7 +213,7 @@ public final class BookTownControl extends JavaPlugin {
         try {
             FileInputStream fileIn = new FileInputStream("plugins/BookTownControl/PFB.dat");
             ObjectInputStream objectIn = new ObjectInputStream(fileIn);
-            PlayerFillingBook = (Map<UUID, List<String>>) objectIn.readObject();
+            PlayerFillingBook = (Map<UUID, AFBSerialized>) objectIn.readObject();
             objectIn.close();
             fileIn.close();
             System.out.println("File PFB.dat loaded");

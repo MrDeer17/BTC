@@ -5,6 +5,7 @@ gr\btc\Army$ArmyPlayer.class
 gr\btc\War.class
 gr\btc\Army.class
 gr\btc\InventoryManager$MyHolder.class
+gr\btc\AFBSerialized.class
 gr\btc\BookTownControl.class
 gr\btc\TownAddition.class
 gr\btc\CountryInventoryManager.class
