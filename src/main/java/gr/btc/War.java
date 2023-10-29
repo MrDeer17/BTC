@@ -55,11 +55,12 @@ public class War implements Serializable {
             side2WarriorsCount = side2Warriors.size();
         }
 
-        if ((side1WarriorsCount == side2WarriorsCount) && (side1WarriorsCount > 1)) {
+        if ((side1WarriorsCount == side2WarriorsCount) && (side1WarriorsCount >= 2)) {
             this.StartDate = new Date();
             this.isStarted = true;
             Bukkit.broadcastMessage(ChatColor.RED + "Началась война между " + town1.getName() + " и " + town2.getName());
-        } else {
+        }
+        else {
             int daysToReinforce = 4;
             this.StartDate = new Date(System.currentTimeMillis() + (daysToReinforce * 24 * 60 * 60 * 1000));
             this.isStarted = false;
@@ -69,32 +70,32 @@ public class War implements Serializable {
 
             if (side1WarriorsCount > side2WarriorsCount) {
                 if (side1WarriorsCount < 2) {
-                    side1WarriorsCount = 2 - warriorsDifference;
-                }
-                if (Mayor1 != null && Mayor1.isOnline()) {
-                    Mayor1.sendMessage("У вас есть " + daysToReinforce + " дня на укрепление армии. Вам не хватает " + warriorsDifference + " бойцов.");
-                }
-
-            }
-            else if(side2WarriorsCount > side1WarriorsCount) {
-                if (side2WarriorsCount < 2) {
-                    side2WarriorsCount = 2 - warriorsDifference;
+                    warriorsDifference = 2 - warriorsDifference;
                 }
                 if (Mayor2 != null && Mayor2.isOnline()) {
                     Mayor2.sendMessage("У вас есть " + daysToReinforce + " дня на укрепление армии. Вам не хватает " + warriorsDifference + " бойцов.");
                 }
 
             }
+            else if(side2WarriorsCount > side1WarriorsCount) {
+                if (side2WarriorsCount < 2) {
+                    warriorsDifference = 2 - warriorsDifference;
+                }
+                if (Mayor1 != null && Mayor1.isOnline()) {
+                    Mayor1.sendMessage("У вас есть " + daysToReinforce + " дня на укрепление армии. Вам не хватает " + warriorsDifference + " бойцов.");
+                }
+
+            }
             else {
                 if (side1WarriorsCount < 2) {
-                    side1WarriorsCount = 2 - warriorsDifference;
+                    warriorsDifference = 2 - warriorsDifference;
                     if (Mayor1 != null && Mayor1.isOnline()) {
                         Mayor1.sendMessage("У вас есть " + daysToReinforce + " дня на укрепление армии. Вам не хватает " + warriorsDifference + " бойцов.");
                     }
 
                 }
                 if (side2WarriorsCount < 2) {
-                    side2WarriorsCount = 2 - warriorsDifference;
+                    warriorsDifference = 2 - warriorsDifference;
 
                     if (Mayor2 != null && Mayor2.isOnline()) {
                         Mayor2.sendMessage("У вас есть " + daysToReinforce + " дня на укрепление армии. Вам не хватает " + warriorsDifference + " бойцов.");
@@ -156,21 +157,44 @@ public class War implements Serializable {
         return type1 && type2;
     }
     public boolean TryToEndWar() {
+        Town town1 = TownyUniverse.getInstance().getTown(sides1.get(0));
+        Town town2 = TownyUniverse.getInstance().getTown(sides2.get(0));
+        if (town1 == null || town2 == null) {
+            // Один из городов равен null
+            // Ваш код для отправки сообщения в чат
+            if (town1 != null) {
+                Bukkit.broadcastMessage(ChatColor.GRAY + "Война в которой участвовала " + town1.getName() + " завершилась по причине расформирования другой страны");
+            }
+            else if (town2 != null) {
+                Bukkit.broadcastMessage(ChatColor.GRAY + "Война в которой участвовала " + town2.getName() + " завершилась по причине расформирования другой страны");
+            }
+            else {
+                Bukkit.broadcastMessage(ChatColor.GRAY + "Война начавшаяся/начинаемая "+this.StartDate+" завершилась, обе страны оказались расформированными");
+            }
+            BookTownControl.Wars.remove(War.this);
+            return true;
+        }
         //REFIRE
+        Date currentDate = new Date();
         if(!this.isStarted) {
-            if (side1Warriors.size() == side2Warriors.size() && (side1Warriors.size() >= 2 && side2Warriors.size() >= 2)) {
+            if (side1Warriors.size() == side2Warriors.size() && side1Warriors.size() >= 2) { //Simplifized, if 3 == 3, 3 >= 2 and 3 >= 2 sootvetstvenno
                 this.StartDate = new Date();
                 this.isStarted = true;
                 Bukkit.broadcastMessage(ChatColor.RED + "Началась война между " + TownyUniverse.getInstance().getTown(sides1.get(0)).getName() + " и " + TownyUniverse.getInstance().getTown(sides2.get(0)).getName());
+                return false;
             }
-            return false;
+            else if(this.StartDate.getTime() <= currentDate.getTime()) {
+                Bukkit.broadcastMessage(ChatColor.GRAY + "Война между " + town1.getName() + " и " + town2.getName() + " не началась.");
+                BookTownControl.Wars.remove(War.this);
+                return true;
+            }
+
         }
         else {
             //END
-            Date currentDate = new Date();
+
             if (this.StartDate.getTime() + (2 * 24 * 60 * 60 * 1000) <= currentDate.getTime() || (side1TryToStop && side2TryToStop)) {
-                Town town1 = TownyUniverse.getInstance().getTown(sides1.get(0));
-                Town town2 = TownyUniverse.getInstance().getTown(sides2.get(0));
+
                 Bukkit.broadcastMessage(ChatColor.GRAY + "Война между " + town1.getName() + " и " + town2.getName() + " окончена.");
                 BookTownControl.Wars.remove(War.this);
                 return true;
@@ -178,6 +202,7 @@ public class War implements Serializable {
                 return false;
             }
         }
+        return true;
     }
 
     public Town ReturnTownByPlayer(Player player) {
@@ -195,5 +220,15 @@ public class War implements Serializable {
             }
         }
         return null;
+    }
+
+    public void addPlayerToSideWarriors(OfflinePlayer player, Town town) {
+        if(sides1.get(0) == town.getUUID()) {
+            side1Warriors.add(player);
+        }
+        else if(sides2.get(0) == town.getUUID()) {
+            side2Warriors.add(player);
+        }
+
     }
 }

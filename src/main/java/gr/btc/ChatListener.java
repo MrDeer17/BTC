@@ -31,6 +31,10 @@ public class ChatListener implements Listener {
         }
     }
 
+    public void skip(Player playerLoc) {
+            response = "пропустить";
+            future.complete(null); // Notify completion
+    }
     public String getResponse() {
         return response;
     }

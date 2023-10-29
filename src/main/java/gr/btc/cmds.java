@@ -22,6 +22,7 @@ import java.util.concurrent.TimeoutException;
 
 public class cmds implements CommandExecutor {
     private HashMap<UUID, Long> commandCooldowns = new HashMap<>();
+    public static HashMap<UUID, ChatListener> skipReq = new HashMap<>();
     @Override
     public boolean onCommand(CommandSender sender, Command command, String label, String[] args) {
         if (sender instanceof Player) {
@@ -197,6 +198,10 @@ public class cmds implements CommandExecutor {
                 if(args[2].equals("true")) {
                     boolean isdeleted = false;
                     UUID townU = Objects.requireNonNull(TownyUniverse.getInstance().getTown(args[1])).getUUID();
+                    if(!(TownyUniverse.getInstance().getTown(townU).getMayor() == TownyUniverse.getInstance().getResident(player.getUniqueId()))) {
+                        player.spigot().sendMessage(ChatMessageType.ACTION_BAR,new TextComponent(ChatColor.RED+"У вас нет прав на удаление чужой страны"));
+                        return false;
+                    }
                     try {
                         isdeleted = townDelete(player, args[1]);
                     } catch (TownyException e) {
@@ -282,7 +287,7 @@ public class cmds implements CommandExecutor {
 
                 }
                 else if((BookTownControl.townAddition.get(town.getUUID()).getTownItemMap() == null || BookTownControl.townAddition.get(town.getUUID()).getTownItemMap().isEmpty()) && isMayorCheck(player,town)) { //Не содержит книгу
-                    if((player.getInventory().getItemInOffHand().getType().equals(Material.WRITABLE_BOOK) || player.getInventory().getItemInOffHand().getType().equals(Material.WRITTEN_BOOK)) && player.getInventory().getItemInOffHand().getItemMeta().hasDisplayName() && player.getInventory().getItemInOffHand().getItemMeta().getDisplayName().equalsIgnoreCase(main.genGr("Законы","#eb1a1a","#eb5a5a"))) {
+                    if((player.getInventory().getItemInOffHand().getType().equals(Material.WRITABLE_BOOK) || player.getInventory().getItemInOffHand().getType().equals(Material.WRITTEN_BOOK)) && player.getInventory().getItemInOffHand().getItemMeta().hasDisplayName() && player.getInventory().getItemInOffHand().getItemMeta().getDisplayName().equalsIgnoreCase(main.genGr("Законы","#eb1a1a","#cc0aaa"))) {
                         player.spigot().sendMessage(ChatMessageType.ACTION_BAR,new TextComponent(ChatColor.GREEN+"Книга установлена"));
                         BookMeta bmbm = (BookMeta) player.getInventory().getItemInOffHand().getItemMeta();
                         BookTownControl.townAddition.get(town.getUUID()).setTownItemMap(bmbm.getPages());
@@ -723,6 +728,12 @@ public class cmds implements CommandExecutor {
 
             if (itemInMainHand.getType().equals(Material.WRITTEN_BOOK)) {
                 player.openBook(itemInMainHand);
+            }
+        }
+        else if (command.getName().equalsIgnoreCase("skipthis")) {
+            Player player = (Player) sender;
+            if(skipReq.containsKey(player.getUniqueId())) {
+                skipReq.get(player.getUniqueId()).skip(player);
             }
         }
         return false;

@@ -187,6 +187,10 @@ public class CountryInventoryManager implements Listener {
         CountryHolder holder = new CountryHolder();
 
         // Создание инвентаря для меню стран
+        if(TownyUniverse.getInstance().getTown(war.sides1.get(0)) == null|| TownyUniverse.getInstance().getTown(war.sides2.get(0)) == null) {
+            war.TryToEndWar();
+            return;
+        }
         Inventory inventory = Bukkit.createInventory(holder, 36, ChatColor.RED + TownyUniverse.getInstance().getTown(war.sides1.get(0)).getName() + " и " + TownyUniverse.getInstance().getTown(war.sides2.get(0)).getName());
         boolean guest = TownyUniverse.getInstance().getTown(war.sides1.get(0)).getMayor().getUUID().equals(player.getUniqueId()) || TownyUniverse.getInstance().getTown(war.sides2.get(0)).getMayor().getUUID().equals(player.getUniqueId());
         guest = !guest;
@@ -372,7 +376,6 @@ public class CountryInventoryManager implements Listener {
                             else if(TownyUniverse.getInstance().getTown(town2Name).getMayor().getUUID().equals(player.getUniqueId())) {
                                 war.SwitchSide(false, true);
                             }
-
                             showLocalWarsMenu(player,war);
                         }
                     }

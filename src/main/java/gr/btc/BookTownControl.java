@@ -40,13 +40,14 @@ public final class BookTownControl extends JavaPlugin {
         Objects.requireNonNull(getCommand("menu")).setExecutor(new cmds());
         Objects.requireNonNull(getCommand("army")).setExecutor(new cmds());
         Objects.requireNonNull(getCommand("openbookinmainhand")).setExecutor(new cmds());
+        Objects.requireNonNull(getCommand("skipthis")).setExecutor(new cmds());
 
         Bukkit.getScheduler().runTaskTimer(this, new Runnable() {
             @Override
             public void run() {
                 TryToEndAllWars();
             }
-        }, 0, 10 * 60 * 20); // 10 минут (10 * 60 секунд) * 20 тиков
+        }, 0, 10 * 60 * 20); // 10 минут (10 * 60 секунд) * 20 тиков 10*60*20
 
         Bukkit.getScheduler().runTaskTimerAsynchronously(getPlugin(BookTownControl.class), new Runnable() {
             @Override

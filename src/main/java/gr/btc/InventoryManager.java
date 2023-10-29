@@ -1142,7 +1142,7 @@ public class InventoryManager implements Listener {
                 }
                 else if (inventoryTitle.contains("Пост игрока")) {
                     String playerName = inventoryTitle.replace("Пост игрока ", "");
-                    Player selectedPlayer = Bukkit.getPlayer(playerName);
+                    OfflinePlayer selectedPlayer = Bukkit.getOfflinePlayer(playerName);
                     ItemStack selectedItem = event.getCurrentItem();
                     if (selectedItem.getType() == Material.PAPER) {
                         ItemMeta selectedItemMeta = selectedItem.getItemMeta();
@@ -1165,8 +1165,13 @@ public class InventoryManager implements Listener {
                     }
                     else if(selectedItem.getItemMeta().hasDisplayName() && selectedItem.getItemMeta().getDisplayName().contains("Освободить от службы")) {
                         Army army = BookTownControl.GetArmyPlayerIn(player);
-                        army.SetLink(selectedPlayer,null);
-                        player.sendMessage("Игрок "+selectedPlayer.getDisplayName()+" освобождён от службы");
+                        if(army.SetLink(selectedPlayer,null)) {
+                            player.sendMessage("Игрок "+selectedPlayer.getName()+" освобождён от службы");
+                        }
+                        else {
+                            player.sendMessage("Игрок "+selectedPlayer.getName()+" не может быть освобождён от службы из за войны");
+                        }
+
                         showArmyMembersMenu(player);
                     }
                 }

@@ -33,14 +33,17 @@ public class AFB {
                 int chunkX = playerLocation.getBlockX() >> 4; // Деление на 16
                 int chunkZ = playerLocation.getBlockZ() >> 4; // Деление на 16
 
-                WorldCoord coordsCheck = new WorldCoord(player.getWorld(), chunkX-10, chunkZ-10);
+                WorldCoord coordsCheck = new WorldCoord(player.getWorld(), chunkX, chunkZ);
                 if (OnBookWrite.isChunkOccupied(coordsCheck, player.getWorld(), player)) {
+                    Bukkit.getScheduler().runTaskLater(BookTownControl.getPlugin(BookTownControl.class), () -> {
+                        Start(player,bMeta,mhi);
+                    }, 20L); // 20 тиков = 1 секунда
                     return;
                 }
                 player.sendMessage("Чанк выбран");
                 int roundedX = (int) Math.round(player.getLocation().getX());
                 int roundedZ = (int) Math.round(player.getLocation().getZ());
-                bMeta.setPage(1, roundedX + " " + roundedZ);
+                bMeta.setPage(1, "Координаты страны: " + roundedX + " " + roundedZ);
                 OnBookWrite.playerSelectionTime.remove(player.getUniqueId());
                 OnBookWrite.playerSelectionTask.get(player.getUniqueId()).cancel();
                 Start(player,bMeta,mhi);
@@ -134,12 +137,18 @@ public class AFB {
     private void askForResponse(Player player, String question, BookMeta bMeta, int pageIndex, ItemStack mhi) {
         CompletableFuture<Void> responseFuture = new CompletableFuture<>();
         player.sendMessage(question);
+        ChatListener chatListener = new ChatListener(player, responseFuture);
         if (pageIndex == 3) {
             TextComponent confirmButton = new TextComponent(ChatColor.YELLOW+"Нажмите на эту строку чтобы пропустить этот этап");
-            confirmButton.setClickEvent(new ClickEvent(ClickEvent.Action.SUGGEST_COMMAND, "Пропустить"));
+            confirmButton.setClickEvent(new ClickEvent(ClickEvent.Action.RUN_COMMAND, "/skipthis"));
             player.spigot().sendMessage(confirmButton);
+            cmds.skipReq.put(player.getUniqueId(),chatListener);
         }
-        ChatListener chatListener = new ChatListener(player, responseFuture);
+        else {
+            if(cmds.skipReq.containsKey(player.getUniqueId())) {
+                cmds.skipReq.remove(player.getUniqueId());
+            }
+        }
         // Отправляем сообщение и ожидаем ответа
         Bukkit.getScheduler().runTaskAsynchronously(BookTownControl.getPlugin(BookTownControl.class), () -> {
             Bukkit.getPluginManager().registerEvents(chatListener, BookTownControl.getPlugin(BookTownControl.class));
@@ -157,6 +166,12 @@ public class AFB {
                     Start(player,bMeta,mhi);
                     return;
                 }
+                else {
+                    response = "Название страны: "+response;
+                }
+            }
+            else {
+                response = "Жители: "+response;
             }
             bMeta.setPage(pageIndex, response);
             //player.getInventory().getItemInMainHand().setItemMeta(bMeta);

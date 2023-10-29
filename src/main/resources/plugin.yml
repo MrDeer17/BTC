@@ -18,3 +18,5 @@ commands:
     description: Menu
   openbookinmainhand:
     description: Menu
+  skipthis:
+    description: just пропустить

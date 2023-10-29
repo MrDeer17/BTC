@@ -1,5 +1,6 @@
 package gr.btc;
 
+import com.palmergames.bukkit.towny.TownyUniverse;
 import com.palmergames.bukkit.towny.object.Town;
 import org.bukkit.Bukkit;
 import org.bukkit.OfflinePlayer;
@@ -46,9 +47,30 @@ public class Army implements Serializable {
     public UUID GetLink(ArmyPlayer player) {
         return LinkedPlayers.getOrDefault(player.getPlayer().getUniqueId(), null);
     }
-    public void SetLink(OfflinePlayer player, UUID town) {
-        LinkedPlayers.put(player.getUniqueId(),town);
-        BookTownControl.saveArmies();
+    public boolean SetLink(OfflinePlayer player, UUID town) {
+        List<War> wars = BookTownControl.CheckForWarsInArmy(this);
+        boolean canBind = true;
+        for (War war : wars) {
+            if (war.side1Warriors.contains(player) || war.side2Warriors.contains(player)) {
+                canBind = false;
+                break;
+            }
+        }
+        if (canBind || LinkedPlayers.get(player.getUniqueId()) == null) {
+            LinkedPlayers.put(player.getUniqueId(), town);
+            if(town != null) {
+                War warb = BookTownControl.CheckForWarInTown(TownyUniverse.getInstance().getTown(town));
+                if(warb != null) {
+                    warb.addPlayerToSideWarriors(player,TownyUniverse.getInstance().getTown(town));
+                }
+                BookTownControl.saveArmies();
+            }
+            return true;
+        }
+        else {
+            return false;
+        //ерорка
+        }
     }
 
     public List<UUID> GetConnectedCountrys() {
